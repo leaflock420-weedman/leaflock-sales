@@ -360,6 +360,56 @@ a { color: inherit; text-decoration: none; }
 .deal-meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted); }
 .deal-foot { margin-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); }
 .deal-value { font-weight: 900; color: var(--moss); font-size: 13px; }
+.deal-value-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.deal-cut { font-size: 11px; color: var(--moss); font-weight: 800; }
+.deal-cut strong { color: #1a7a3a; font-size: 12px; }
+.deal-cut-inline { color: var(--moss); font-weight: 800; }
+.deal-assignee-you { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--leaf); }
+
+.staff-cut-big strong { color: var(--lime); text-shadow: 0 0 24px rgba(199, 243, 92, 0.35); }
+.staff-bar-fill { background: linear-gradient(90deg, #ffe566, var(--lime)); }
+.staff-tier-highlight {
+  border-color: rgba(199, 243, 92, 0.45);
+  background: rgba(199, 243, 92, 0.14);
+}
+.staff-tier-highlight strong { color: var(--lime); }
+.staff-metric-cut {
+  border-color: #b8e8a8;
+  background: linear-gradient(180deg, #f8fdf5, #fff);
+}
+.staff-metric-cut::after { background: linear-gradient(90deg, var(--lime), #ffe566); }
+.staff-metric-cut strong { color: var(--moss); }
+
+.staff-settings-hero {
+  background: linear-gradient(135deg, #f8fdf5, #fff);
+  border-color: #b8e8a8;
+}
+.staff-settings-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+.staff-settings-stats > div {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+}
+.staff-settings-stats span {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.staff-settings-stats strong { display: block; font-size: 22px; margin-top: 4px; color: var(--ink); }
+.staff-settings-cut { border-color: #b8e8a8; background: #f0fbe8; }
+.staff-settings-cut strong { color: var(--moss); }
+
+.hidden-staff-filter,
+.hidden-staff-only { display: none !important; }
+body.staff-mode .site-header .eyebrow::after { content: attr(data-staff-suffix); }
 
 .pill {
   display: inline-flex;

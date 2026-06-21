@@ -5,7 +5,12 @@
 
  let pharmacies = [];
  let tasks = [];
- let teamConfig = { members: [...cfg.defaultTeamMembers], assignees: [...cfg.assignees] };
+ let teamConfig = {
+ members: [...cfg.defaultTeamMembers],
+ assignees: [...cfg.assignees],
+ managers: [...(cfg.defaultManagers || [])],
+ commissionRate: cfg.staffCommissionRate ?? 0.2
+ };
  let taskFilter = "mine";
  let activeView = "pipeline";
  let filters = { state: "", type: "", relevance: "", stage: "", status: "", assignee: "", search: "" };
@@ -27,6 +32,40 @@
  return teamConfig.assignees?.length ? teamConfig.assignees : cfg.assignees;
  }
 
+ function staffName() {
+ return (sync?.currentUser?.() || localStorage.getItem("leaflock-user-name") || "").trim();
+ }
+
+ function isManager() {
+ const me = staffName();
+ if (!me) return true;
+ const managers = teamConfig.managers?.length ? teamConfig.managers : cfg.defaultManagers || [];
+ return managers.some((m) => m.toLowerCase() === me.toLowerCase());
+ }
+
+ function commissionRate() {
+ const r = Number(teamConfig.commissionRate);
+ return Number.isFinite(r) && r > 0 && r < 1 ? r : cfg.staffCommissionRate ?? 0.2;
+ }
+
+ function staffCut(amount) {
+ return Math.round((Number(amount) || 0) * commissionRate());
+ }
+
+ function applyMyDealsFilter() {
+ const me = staffName();
+ if (!me || isManager()) return;
+ if (!teamConfig.members.some((m) => m.toLowerCase() === me.toLowerCase())) return;
+ filters.assignee = me;
+ const sel = $("#filter-assignee");
+ if (sel) sel.value = me;
+ taskFilter = "mine";
+ }
+
+ function staffViewActive() {
+ return !isManager() && Boolean(filters.assignee) && filters.assignee === staffName();
+ }
+
  function buildPayload() {
  return {
  pharmacies,
@@ -44,6 +83,8 @@
  if (remote.teamConfig) teamConfig = { ...teamConfig, ...remote.teamConfig };
  localStorage.setItem(cfg.storageKey, JSON.stringify(buildPayload()));
  refreshAssigneeFilters();
+ applyMyDealsFilter();
+ updateStaffUi();
  renderActiveView();
  updateSyncStatus(remote.updatedBy ? `Team live | ${remote.updatedBy}` : "Team live");
  if (!silent) toast("Team data updated");
@@ -277,12 +318,51 @@
  }
 
  function updateSidebarStats() {
- const m = metrics(pharmacies);
- const all = revenueStats(pharmacies);
+ const list = staffViewActive() ? filteredPharmacies() : pharmacies;
+ const m = metrics(list);
+ const rev = revenueStats(list);
  $("#stat-total").textContent = m.total;
  $("#stat-open").textContent = m.open;
  $("#stat-won").textContent = m.won;
- $("#stat-value").textContent = formatMoney(all.totalPotential);
+ $("#stat-value").textContent = staffViewActive()
+ ? formatMoney(staffCut(rev.openPotential))
+ : formatMoney(rev.totalPotential);
+ }
+
+ function renderViewHero(list) {
+ if (staffViewActive()) renderStaffEarningsHero(list);
+ else renderRevenueHero(list);
+ }
+
+ function renderStaffEarningsHero(list) {
+ const rev = revenueStats(list);
+ const rate = Math.round(commissionRate() * 100);
+ const openCut = staffCut(rev.openPotential);
+ const wonCut = staffCut(rev.wonRevenue);
+ const me = staffName();
+ $("#revenue-hero").innerHTML = `
+ <div class="revenue-hero-top staff-earnings-top">
+ <div>
+ <h2>${escapeHtml(me)}'s pipeline</h2>
+ <p class="tagline">These are <strong>your assigned deals</strong>. Every order you close pays you <strong>${rate}%</strong> of the deal value. Push deals forward — your cut grows with every win.</p>
+ </div>
+ <div class="revenue-big staff-cut-big">
+ <span>Your cut on open deals (${rate}%)</span>
+ <strong>${formatMoney(openCut)}</strong>
+ <small>${rev.open} open deals · ${formatMoney(rev.openPotential)} pipeline</small>
+ </div>
+ </div>
+ <div class="revenue-progress">
+ <div class="revenue-progress-label"><span>Won commission earned</span><span>${formatMoney(wonCut)} from ${rev.won} wins</span></div>
+ <div class="revenue-bar"><div class="revenue-bar-fill staff-bar-fill" style="width:${rev.won ? Math.min(100, (rev.wonRevenue / (rev.openPotential + rev.wonRevenue || 1)) * 100) : 0}%"></div></div>
+ </div>
+ <div class="revenue-tiers staff-earnings-tiers">
+ <article class="tier-stat staff-tier-highlight"><span>If you close everything open</span><strong>${formatMoney(openCut)}</strong><small>${rate}% of ${formatMoney(rev.openPotential)}</small></article>
+ <article class="tier-stat"><span>Already won</span><strong>${formatMoney(wonCut)}</strong><small>${rev.won} deals · ${formatMoney(rev.wonRevenue)} revenue</small></article>
+ <article class="tier-stat"><span>Deals assigned to you</span><strong>${rev.active}</strong><small>${rev.open} still open</small></article>
+ <article class="tier-stat"><span>Top deal tier</span><strong>${formatMoney(3025 * commissionRate())}</strong><small>Scale order ($3,025) @ ${rate}%</small></article>
+ </div>
+ `;
  }
 
  function renderRevenueHero(list) {
@@ -316,6 +396,16 @@
  function renderMetrics(list) {
  const m = metrics(list);
  const rev = revenueStats(list);
+ if (staffViewActive()) {
+ const rate = Math.round(commissionRate() * 100);
+ $("#metrics").innerHTML = `
+ <article class="metric-card staff-metric"><span>Your open deals</span><strong>${m.open}</strong></article>
+ <article class="metric-card staff-metric"><span>Your pipeline</span><strong>${formatMoney(rev.openPotential)}</strong></article>
+ <article class="metric-card staff-metric staff-metric-cut"><span>Your cut (${rate}%)</span><strong>${formatMoney(staffCut(rev.openPotential))}</strong></article>
+ <article class="metric-card staff-metric"><span>Won commission</span><strong>${formatMoney(staffCut(rev.wonRevenue))}</strong></article>
+ `;
+ return;
+ }
  $("#metrics").innerHTML = `
  <article class="metric-card"><span>Stores in view</span><strong>${m.total}</strong></article>
  <article class="metric-card"><span>Open potential</span><strong>${formatMoney(rev.openPotential)}</strong></article>
@@ -348,6 +438,17 @@
 
  function dealCard(p) {
  const assignOpts = assigneeList().map((a) => `<option value="${escapeHtml(a)}" ${a === (p.assignee || "Unassigned") ? "selected" : ""}>${escapeHtml(a)}</option>`).join("");
+ const val = saleValue(p);
+ const cut = val > 0 ? staffCut(val) : 0;
+ const rate = Math.round(commissionRate() * 100);
+ const assignUi = isManager()
+ ? `<select class="quick-assign" data-id="${p.id}" onclick="event.stopPropagation()" aria-label="Assign staff">${assignOpts}</select>`
+ : `<span class="deal-assignee-you">Your deal</span>`;
+ const valueUi = val > 0
+ ? (staffViewActive() || !isManager()
+ ? `<div class="deal-value-stack"><span class="deal-value">${formatMoney(val)}</span><span class="deal-cut">Your ${rate}%: <strong>${formatMoney(cut)}</strong></span></div>`
+ : `<span class="deal-value">${formatMoney(val)}</span>`)
+ : "<span>-</span>";
  return `
  <article class="deal-card" draggable="true" data-id="${p.id}">
  <h4>${escapeHtml(p.name)}</h4>
@@ -357,11 +458,11 @@
  <span>${escapeHtml(p.accountType || p.type || "")}</span>
  </div>
  <div class="deal-meta" style="margin-top:8px;">
- ${p.potentialSale !== false && saleValue(p) > 0 ? `<span class="pill pill-tier ${p.orderTier === 2000 ? "tier-2000" : ""}">${escapeHtml(tierLabel(p))}</span>` : ""}
+ ${p.potentialSale !== false && val > 0 ? `<span class="pill pill-tier ${p.orderTier === 2000 ? "tier-2000" : ""}">${escapeHtml(tierLabel(p))}</span>` : ""}
  </div>
  <div class="deal-foot">
- <select class="quick-assign" data-id="${p.id}" onclick="event.stopPropagation()" aria-label="Assign staff">${assignOpts}</select>
- ${saleValue(p) > 0 ? `<span class="deal-value">${formatMoney(saleValue(p))}</span>` : "<span>-</span>"}
+ ${assignUi}
+ ${valueUi}
  </div>
  </article>
  `;
@@ -385,7 +486,7 @@
 
  function renderPipeline() {
  const list = filteredPharmacies().filter((p) => p.status !== "Lost" || filters.stage === "Lost");
- renderRevenueHero(list);
+ renderViewHero(list);
  renderMetrics(list);
  const board = $("#pipeline-board");
  board.innerHTML = cfg.pipelineStages
@@ -456,7 +557,7 @@
  ${p.phone ? `<div>Tel: ${escapeHtml(p.phone)}</div>` : ""}
  ${p.email ? `<div>Email: ${escapeHtml(p.email)}</div>` : ""}
  <div>Type: ${escapeHtml(p.accountType || p.type || "Independent")}</div>
- ${saleValue(p) > 0 ? `<div>$ <span class="pill-revenue">${formatMoney(saleValue(p))}</span> ${escapeHtml(tierLabel(p))}</div>` : ""}
+ ${saleValue(p) > 0 ? `<div>$ <span class="pill-revenue">${formatMoney(saleValue(p))}</span> ${escapeHtml(tierLabel(p))}${staffViewActive() ? ` · <span class="deal-cut-inline">Your cut ${formatMoney(staffCut(saleValue(p)))}</span>` : ""}</div>` : ""}
  </div>
  <div class="store-actions">
  ${nextStages.map((s) => `<button type="button" class="quick-stage" data-id="${p.id}" data-stage="${s}">-> ${s}</button>`).join("")}
@@ -467,7 +568,7 @@
 
  function renderStores() {
  const list = filteredPharmacies();
- renderRevenueHero(list);
+ renderViewHero(list);
  renderMetrics(list);
  const grid = $("#stores-grid");
  grid.innerHTML = list.length
@@ -515,7 +616,7 @@
 
  function renderContacts() {
  const list = filteredPharmacies();
- renderRevenueHero(list);
+ renderViewHero(list);
  renderMetrics(list);
  const grid = $("#contacts-grid");
  grid.innerHTML = list.length
@@ -604,6 +705,38 @@
  }
 
  function renderSettings() {
+ if (staffViewActive()) {
+ const rate = Math.round(commissionRate() * 100);
+ const mine = filteredPharmacies();
+ const rev = revenueStats(mine);
+ $("#settings-content").innerHTML = `
+ <div class="settings-grid">
+ <article class="settings-card settings-wide staff-settings-hero">
+ <h3>Your earnings dashboard</h3>
+ <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 14px;">You earn <strong>${rate}%</strong> on every deal you close. Push your assigned stores through the pipeline — your cut updates live as deals move forward.</p>
+ <div class="staff-settings-stats">
+ <div><span>Open deals</span><strong>${rev.open}</strong></div>
+ <div><span>Pipeline value</span><strong>${formatMoney(rev.openPotential)}</strong></div>
+ <div class="staff-settings-cut"><span>Your cut (${rate}%)</span><strong>${formatMoney(staffCut(rev.openPotential))}</strong></div>
+ <div><span>Won commission</span><strong>${formatMoney(staffCut(rev.wonRevenue))}</strong></div>
+ </div>
+ <button class="btn btn-ghost btn-small" id="btn-logout" type="button" style="margin-top:14px;">Sign out</button>
+ </article>
+ <article class="settings-card">
+ <h3>Deal tiers (what you earn)</h3>
+ <ul style="margin:0;padding-left:18px;color:var(--muted);line-height:1.8;font-size:13px;">
+ <li><strong>Starter</strong> $825 → your cut <strong>${formatMoney(825 * commissionRate())}</strong></li>
+ <li><strong>Growth</strong> $1,595 → your cut <strong>${formatMoney(1595 * commissionRate())}</strong></li>
+ <li><strong>Scale</strong> $3,025 → your cut <strong>${formatMoney(3025 * commissionRate())}</strong></li>
+ </ul>
+ </article>
+ </div>`;
+ $("#btn-logout")?.addEventListener("click", async () => {
+ await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+ location.href = "/login.html";
+ });
+ return;
+ }
  const syncSettings = sync?.loadSettings?.() || {};
  const userName = sync?.currentUser?.() || "";
  const serverMode = sync?.usesServer?.();
@@ -636,10 +769,17 @@
  ${syncBlock}
  <article class="settings-card">
  <h3>Team roster</h3>
- <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">One name per line - used for assignees and auto-assign.</p>
+ <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">One name per line — must match login names. Staff only see deals assigned to them + their ${Math.round(commissionRate() * 100)}% cut.</p>
  <textarea id="set-team-members" rows="5">${escapeHtml(teamConfig.members.join("\n"))}</textarea>
  <button class="btn btn-secondary btn-small" id="btn-save-team" type="button" style="margin-top:10px;">Save roster</button>
  <button class="btn btn-ghost btn-small" id="btn-auto-assign" type="button" style="margin-top:10px;">Auto-assign open deals</button>
+ </article>
+ <article class="settings-card settings-wide">
+ <h3>Staff commission &amp; managers</h3>
+ <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">Reps see <strong>only their deals</strong> and <strong>their % cut</strong> on every card. Managers (below) see the full pipeline.</p>
+ <label class="field"><span>Commission rate (decimal, e.g. 0.2 = 20%)</span><input id="set-commission-rate" type="number" min="0.01" max="0.99" step="0.01" value="${teamConfig.commissionRate ?? cfg.staffCommissionRate ?? 0.2}"></label>
+ <label class="field" style="margin-top:10px;"><span>Manager names (one per line — see all deals)</span><textarea id="set-managers" rows="3">${escapeHtml((teamConfig.managers || cfg.defaultManagers || []).join("\n"))}</textarea></label>
+ <button class="btn btn-secondary btn-small" id="btn-save-commission" type="button" style="margin-top:10px;">Save commission settings</button>
  </article>
  <article class="settings-card settings-wide">
  <h3>Staff emails (for task &amp; follow-up alerts)</h3>
@@ -716,8 +856,19 @@
  teamConfig.assignees = ["Unassigned", ...teamConfig.members, "Sales Team"];
  save();
  refreshAssigneeFilters();
+ applyMyDealsFilter();
  toast("Team roster saved");
  };
+ $("#btn-save-commission")?.addEventListener("click", () => {
+ const rate = Number($("#set-commission-rate").value);
+ teamConfig.commissionRate = Number.isFinite(rate) && rate > 0 && rate < 1 ? rate : cfg.staffCommissionRate ?? 0.2;
+ teamConfig.managers = $("#set-managers").value.split("\n").map((s) => s.trim()).filter(Boolean);
+ if (!teamConfig.managers.length) teamConfig.managers = [...(cfg.defaultManagers || [])];
+ save();
+ applyMyDealsFilter();
+ renderActiveView();
+ toast("Commission settings saved");
+ });
  $("#btn-auto-assign").onclick = autoAssignDeals;
  $("#btn-export").onclick = exportData;
  $("#import-file").onchange = importData;
@@ -735,7 +886,9 @@
  updateSidebarStats();
  $$(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${activeView}`));
  $$(".nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === activeView));
- const titles = { pipeline: "Sales Pipeline", stores: "Pharmacy Stores", contacts: "Contacts", tasks: "Team Tasks", settings: "Settings" };
+ const titles = staffViewActive()
+ ? { pipeline: "My Pipeline", stores: "My Stores", contacts: "My Contacts", tasks: "My Tasks", settings: "Settings" }
+ : { pipeline: "Sales Pipeline", stores: "Pharmacy Stores", contacts: "Contacts", tasks: "Team Tasks", settings: "Settings" };
  $("#page-title").textContent = titles[activeView] || "CRM";
  $("#revenue-hero").style.display = (activeView === "settings" || activeView === "tasks") ? "none" : "block";
  if (activeView === "pipeline") renderPipeline();
@@ -1077,6 +1230,7 @@
  ["filter-state", "filter-type", "filter-relevance", "filter-stage", "filter-status", "filter-assignee"].forEach((id) => {
  $("#" + id).value = "";
  });
+ applyMyDealsFilter();
  renderActiveView();
  });
 
@@ -1131,9 +1285,34 @@
  }
  load();
  bindUi();
+ applyMyDealsFilter();
+ updateStaffUi();
  renderActiveView();
  await initSync();
+ applyMyDealsFilter();
+ updateStaffUi();
+ renderActiveView();
  if (!sync?.usesServer?.()) promptUserName();
+ applyMyDealsFilter();
+ updateStaffUi();
+ renderActiveView();
+ }
+
+ function updateStaffUi() {
+ const active = staffViewActive();
+ document.body.classList.toggle("staff-mode", active);
+ const assigneeFilter = $("#filter-assignee");
+ if (assigneeFilter) {
+ assigneeFilter.closest(".filter-chip")?.classList.toggle("hidden-staff-filter", active);
+ assigneeFilter.disabled = active;
+ }
+ $("#btn-add")?.classList.toggle("hidden-staff-only", active);
+ const pipelineLabel = $("#stat-pipeline-label");
+ if (pipelineLabel) pipelineLabel.textContent = active ? "Your cut" : "Pipeline";
+ const eyebrow = $(".site-header .eyebrow");
+ if (eyebrow) {
+ eyebrow.dataset.staffSuffix = active ? ` · Your deals + ${Math.round(commissionRate() * 100)}% cut` : "";
+ }
  }
 
  document.addEventListener("DOMContentLoaded", () => { init(); });

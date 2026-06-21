@@ -66,5 +66,7 @@ window.CRM_CONFIG = {
  "pharmacy 4 less", "discount drug", "capital chemist", "canwell", "medigreen",
  "greenlife", "green street", "vert dispensary", "pharmacy 777", "terrywhite chemmart"
  ],
- eliteTierPercent: 0.2
+ eliteTierPercent: 0.2,
+ staffCommissionRate: 0.2,
+ defaultManagers: ["Lewis"]
 };
