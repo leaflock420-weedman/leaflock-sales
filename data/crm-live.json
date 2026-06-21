@@ -64,7 +64,7 @@
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
-      "assignee": "Lewis",
+      "assignee": "Sarah",
       "closeDate": "",
       "lossReason": "",
       "notes": "",
@@ -27797,8 +27797,8 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-21T21:55:54.436Z",
-  "updatedBy": "sarah",
+  "savedAt": "2026-06-21T21:57:04.333Z",
+  "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
   }
