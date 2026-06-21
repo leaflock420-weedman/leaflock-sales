@@ -27787,9 +27787,11 @@
       "title": "email",
       "assignee": "Sarah",
       "dueDate": "2026-06-21",
-      "status": "open",
+      "status": "done",
       "createdBy": "lewis",
-      "createdAt": "2026-06-21"
+      "createdAt": "2026-06-21",
+      "completedAt": "2026-06-21",
+      "completedBy": "sarah"
     }
   ],
   "teamConfig": {
@@ -27813,7 +27815,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-21T22:18:18.584Z",
+  "savedAt": "2026-06-21T22:18:34.645Z",
   "updatedBy": "sarah",
   "meta": {
     "emailLog": {}
