@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LeafLock Sales">
-  <title>LeafLock Pharmacy Pipeline</title>
+  <title>LeafLock Sales — Pipeline</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -35,11 +35,11 @@
       </div>
 
       <nav class="nav" aria-label="Views">
-        <button type="button" class="active" data-view="pipeline"><span class="nav-icon" aria-hidden="true">#</span> Pipeline</button>
-        <button type="button" data-view="stores"><span class="nav-icon" aria-hidden="true">O</span> Stores</button>
-        <button type="button" data-view="contacts"><span class="nav-icon" aria-hidden="true">@</span> Contacts</button>
-        <button type="button" data-view="tasks"><span class="nav-icon" aria-hidden="true">+</span> Tasks<span id="nav-task-badge" class="nav-badge" hidden>0</span></button>
-        <button type="button" data-view="settings"><span class="nav-icon" aria-hidden="true">*</span> Settings</button>
+        <button type="button" class="active" data-view="pipeline"><span class="nav-icon pd-icon" aria-hidden="true">▦</span> Deals</button>
+        <button type="button" data-view="stores"><span class="nav-icon pd-icon" aria-hidden="true">◎</span> Organizations</button>
+        <button type="button" data-view="contacts"><span class="nav-icon pd-icon" aria-hidden="true">◉</span> People</button>
+        <button type="button" data-view="tasks"><span class="nav-icon pd-icon" aria-hidden="true">☑</span> Activities<span id="nav-task-badge" class="nav-badge" hidden>0</span></button>
+        <button type="button" data-view="settings"><span class="nav-icon pd-icon" aria-hidden="true">⚙</span> Settings</button>
       </nav>
 
       <div class="sidebar-stats" aria-live="polite">
@@ -55,8 +55,8 @@
         <div class="header-row">
           <button id="menu-toggle" class="icon-btn menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">=</button>
           <div class="header-titles">
-            <p class="eyebrow">LeafLock wholesale CRM</p>
-            <h1 id="page-title">Sales Pipeline</h1>
+            <p class="eyebrow">LeafLock Sales CRM</p>
+            <h1 id="page-title">Deals</h1>
           </div>
           <span id="sync-status" class="sync-status" title="Team sync status">Local only</span>
           <button id="btn-install" class="btn btn-ghost btn-small install-btn" type="button" hidden>Install app</button>
@@ -65,11 +65,11 @@
         <div class="header-tools">
           <label class="search-box">
             <span aria-hidden="true">?</span>
-            <input id="search-input" type="search" placeholder="Search stores, emails, suburbs..." autocomplete="off" enterkeyhint="search">
+            <input id="search-input" type="search" placeholder="Search deals, people, organizations..." autocomplete="off" enterkeyhint="search">
           </label>
           <div class="toolbar">
             <button id="btn-clear-filters" class="btn btn-ghost btn-small" type="button">Clear</button>
-            <button id="btn-add" class="btn btn-primary" type="button">+ Add store</button>
+            <button id="btn-add" class="btn btn-primary" type="button">+ Deal</button>
           </div>
         </div>
 
@@ -93,7 +93,9 @@
         <section id="metrics" class="metrics" aria-label="Key metrics"></section>
 
         <section id="view-pipeline" class="view active" aria-label="Pipeline board">
+          <div id="pipeline-toolbar" class="pipeline-toolbar"></div>
           <div id="pipeline-board" class="pipeline-board"></div>
+          <div id="pipeline-list" class="pipeline-list" hidden></div>
         </section>
 
         <section id="view-stores" class="view" aria-label="Store directory">
@@ -119,12 +121,14 @@
   <div id="drawer-backdrop" class="drawer-backdrop"></div>
   <aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
     <header class="drawer-header">
-      <div>
-        <h2 id="drawer-title">Store</h2>
+      <div class="drawer-header-main">
+        <h2 id="drawer-title">Deal</h2>
         <p id="drawer-sub" class="drawer-sub"></p>
       </div>
-      <button id="drawer-close" class="icon-btn" type="button" aria-label="Close panel">X</button>
+      <button id="drawer-close" class="icon-btn" type="button" aria-label="Close panel">×</button>
     </header>
+    <div id="drawer-deal-banner" class="drawer-deal-banner" hidden></div>
+    <nav id="drawer-tabs" class="drawer-tabs" hidden aria-label="Deal sections"></nav>
     <div id="drawer-body" class="drawer-body"></div>
   </aside>
 

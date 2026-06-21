@@ -12,6 +12,8 @@
  commissionRate: cfg.staffCommissionRate ?? 0.2
  };
  let taskFilter = "mine";
+ let pipelineMode = "board";
+ let dealDrawerTab = "activity";
  let activeView = "pipeline";
  let filters = { state: "", type: "", relevance: "", stage: "", status: "", assignee: "", search: "" };
  let dragId = null;
@@ -568,10 +570,71 @@
  `;
  }
 
- function moveToStage(id, stage) {
+ function stageMeta(stageName) {
+ return cfg.pipelineStages.find((s) => s.name === stageName) || cfg.pipelineStages[0];
+ }
+
+ function stageProbability(stageName) {
+ return stageMeta(stageName).probability ?? 50;
+ }
+
+ function daysSince(dateStr) {
+ if (!dateStr) return 0;
+ const d = new Date(dateStr);
+ const now = new Date();
+ return Math.max(0, Math.floor((now - d) / (24 * 60 * 60 * 1000)));
+ }
+
+ function daysInStage(p) {
+ return daysSince(p.stageChangedAt || p.lastActivity || p.createdAt);
+ }
+
+ function dealActivities(p) {
+ if (!Array.isArray(p.activities)) p.activities = [];
+ return p.activities;
+ }
+
+ function nextActivityId(p) {
+ const acts = dealActivities(p);
+ const nums = acts.map((a) => Number(String(a.id).replace(/\D/g, "")) || 0);
+ return `act-${Math.max(0, ...nums) + 1}`;
+ }
+
+ function logActivity(pharmacyId, type, note, extra = {}) {
+ const p = pharmacies.find((x) => x.id === pharmacyId);
+ if (!p) return;
+ const act = {
+ id: nextActivityId(p),
+ type,
+ note: (note || "").trim(),
+ createdAt: new Date().toISOString(),
+ createdBy: staffName() || "Team member",
+ ...extra
+ };
+ dealActivities(p).unshift(act);
+ p.lastActivity = today();
+ return act;
+ }
+
+ function weightedPipeline(list) {
+ return list.filter((p) => p.status === "Open").reduce((sum, p) => {
+ const val = saleValue(p);
+ return sum + val * (stageProbability(normalizeStage(p.stage)) / 100);
+ }, 0);
+ }
+
+ function activityIcon(type) {
+ const map = { call: "📞", email: "✉", meeting: "📅", note: "📝", task: "☑", stage: "→" };
+ return map[type] || "•";
+ }
+
+ function moveToStage(id, stage, silentToast = false) {
  const item = pharmacies.find((p) => p.id === id);
  if (!item) return;
+ const oldStage = normalizeStage(item.stage);
+ if (oldStage === stage) return;
  item.stage = stage;
+ item.stageChangedAt = today();
  item.lastActivity = today();
  if (stage === "Won") {
  item.status = "Won";
@@ -584,34 +647,44 @@
  item.closeDate = "";
  item.lossReason = "";
  }
+ logActivity(id, "stage", `Moved from ${oldStage} to ${stage}`, { fromStage: oldStage, toStage: stage });
  save();
  renderActiveView();
- toast(`Moved to ${stage}`);
+ if (!silentToast) toast(`Moved to ${stage}`);
  }
 
  function dealCard(p) {
+ const stage = stageMeta(normalizeStage(p.stage));
  const assignOpts = assigneeList().map((a) => `<option value="${escapeHtml(a)}" ${a === (p.assignee || "Unassigned") ? "selected" : ""}>${escapeHtml(a)}</option>`).join("");
  const val = saleValue(p);
  const cut = val > 0 ? staffCut(val) : 0;
  const rate = Math.round(commissionRate() * 100);
+ const days = daysInStage(p);
+ const daysCls = days >= 14 ? "deal-days stale" : "deal-days";
  const assignUi = isManager()
- ? `<select class="quick-assign" data-id="${p.id}" onclick="event.stopPropagation()" aria-label="Assign staff">${assignOpts}</select>`
- : `<span class="deal-assignee-you">Your deal</span>`;
+ ? `<select class="quick-assign" data-id="${p.id}" onclick="event.stopPropagation()" aria-label="Assign owner">${assignOpts}</select>`
+ : `<span class="deal-assignee-you">${escapeHtml(p.assignee || "You")}</span>`;
  const valueUi = val > 0
  ? (staffViewActive() || !isManager()
  ? `<div class="deal-value-stack"><span class="deal-value">${formatMoney(val)}</span><span class="deal-cut">Your ${rate}%: <strong>${formatMoney(cut)}</strong></span></div>`
  : `<span class="deal-value">${formatMoney(val)}</span>`)
- : "<span>-</span>";
+ : '<span class="deal-value">—</span>';
+ const contact = p.contactName ? `<span class="deal-person">${escapeHtml(p.contactName)}</span>` : "";
+ const org = [p.accountType || p.type, p.state].filter(Boolean).join(" · ");
+ const quickWon = isManager() && p.status === "Open"
+ ? `<div class="deal-card-actions"><button type="button" class="deal-quick-btn won" data-won="${p.id}" title="Won" onclick="event.stopPropagation()">✓</button><button type="button" class="deal-quick-btn lost" data-lost="${p.id}" title="Lost" onclick="event.stopPropagation()">✕</button></div>`
+ : "";
  return `
- <article class="deal-card" draggable="true" data-id="${p.id}">
+ <article class="deal-card" draggable="true" data-id="${p.id}" style="--deal-accent:${stage.color}">
+ ${quickWon}
+ <div class="deal-card-top">
  <h4>${escapeHtml(p.name)}</h4>
- <div class="deal-meta">
- <span class="pill ${priorityClass(p.priority)}">${escapeHtml(p.priority || "Medium")}</span>
- ${p.state ? `<span class="pill pill-state">${escapeHtml(p.state)}</span>` : ""}
- <span>${escapeHtml(p.accountType || p.type || "")}</span>
+ <span class="${daysCls}">${days}d</span>
  </div>
- <div class="deal-meta" style="margin-top:8px;">
- ${p.potentialSale !== false && val > 0 ? `<span class="pill pill-tier ${p.orderTier === 2000 ? "tier-2000" : ""}">${escapeHtml(tierLabel(p))}</span>` : ""}
+ ${org ? `<div class="deal-org">${escapeHtml(org)}</div>` : ""}
+ ${contact}
+ <div class="deal-meta" style="margin-top:6px;">
+ <span class="pill ${priorityClass(p.priority)}">${escapeHtml(p.priority || "Medium")}</span>
  </div>
  <div class="deal-foot">
  ${assignUi}
@@ -637,33 +710,97 @@
  });
  }
 
+ function renderPipelineToolbar(list) {
+ const rev = revenueStats(list);
+ const weighted = weightedPipeline(list);
+ const el = $("#pipeline-toolbar");
+ if (!el) return;
+ el.innerHTML = `
+ <div class="pipeline-toolbar-stats">
+ <div class="pipeline-stat"><span>Deals in view</span><strong>${rev.active}</strong></div>
+ <div class="pipeline-stat"><span>Total value</span><strong class="pd-green">${formatMoney(rev.openPotential)}</strong></div>
+ <div class="pipeline-stat"><span>Weighted forecast</span><strong>${formatMoney(weighted)}</strong></div>
+ ${staffViewActive() ? `<div class="pipeline-stat"><span>Your cut</span><strong class="pd-green">${formatMoney(staffCut(rev.openPotential))}</strong></div>` : ""}
+ </div>
+ <div class="pipeline-view-toggle" role="group" aria-label="Pipeline view">
+ <button type="button" class="${pipelineMode === "board" ? "active" : ""}" data-pmode="board">Board</button>
+ <button type="button" class="${pipelineMode === "list" ? "active" : ""}" data-pmode="list">List</button>
+ </div>`;
+ $$("[data-pmode]", el).forEach((btn) => {
+ btn.onclick = () => { pipelineMode = btn.dataset.pmode; renderPipeline(); };
+ });
+ }
+
+ function renderPipelineList(list) {
+ const el = $("#pipeline-list");
+ const board = $("#pipeline-board");
+ if (!el) return;
+ const rows = list
+ .filter((p) => p.status !== "Lost" || filters.stage === "Lost")
+ .sort((a, b) => saleValue(b) - saleValue(a));
+ el.innerHTML = rows.length ? `
+ <table>
+ <thead><tr><th>Deal</th><th>Organization</th><th>Stage</th><th>Owner</th><th>Value</th><th>Days</th></tr></thead>
+ <tbody>${rows.map((p) => {
+ const st = stageMeta(normalizeStage(p.stage));
+ const val = saleValue(p);
+ return `<tr data-id="${p.id}">
+ <td><span class="list-deal">${escapeHtml(p.name)}</span>${p.contactName ? `<br><small style="color:var(--muted)">${escapeHtml(p.contactName)}</small>` : ""}</td>
+ <td>${escapeHtml(p.accountType || p.type || "—")} ${p.state ? `· ${escapeHtml(p.state)}` : ""}</td>
+ <td><span class="list-stage-pill"><span class="stage-dot" style="background:${st.color}"></span>${escapeHtml(st.name)}</span></td>
+ <td>${escapeHtml(p.assignee || "—")}</td>
+ <td class="list-value">${val ? formatMoney(val) : "—"}</td>
+ <td>${daysInStage(p)}d</td>
+ </tr>`;
+ }).join("")}</tbody>
+ </table>` : `<div class="empty-state full">No deals match your filters</div>`;
+ $$("tbody tr", el).forEach((row) => row.onclick = () => openDrawer(row.dataset.id));
+ el.hidden = pipelineMode !== "list";
+ if (board) board.hidden = pipelineMode !== "board";
+ }
+
  function renderPipeline() {
  const list = filteredPharmacies().filter((p) => p.status !== "Lost" || filters.stage === "Lost");
  renderViewHero(list);
  renderMetrics(list);
+ renderPipelineToolbar(list);
+ renderPipelineList(list);
  const board = $("#pipeline-board");
  board.innerHTML = cfg.pipelineStages
+ .filter((s) => s.name !== "Lost" || filters.stage === "Lost")
  .map((stage) => {
  const cards = list.filter((p) => normalizeStage(p.stage) === stage.name);
- const value = cards.reduce((s, p) => s + (Number(p.value) || 0), 0);
+ const value = cards.reduce((s, p) => s + saleValue(p), 0);
+ const prob = stage.probability ?? 0;
  return `
- <section class="pipeline-column" data-stage="${stage.name}">
+ <section class="pipeline-column" data-stage="${stage.name}" style="--stage-color:${stage.color}">
  <header class="column-header">
- <div class="column-title"><span class="stage-dot" style="background:${stage.color}"></span>${stage.name}</div>
- <div style="text-align:right">
- <span class="column-count">${cards.length}</span>
- ${value ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${formatMoney(value)}</div>` : ""}
+ <div class="column-title">
+ <span><span class="stage-dot" style="background:${stage.color}"></span>${stage.name}</span>
+ <span class="stage-prob">${prob}% likelihood</span>
+ </div>
+ <div class="column-sum">
+ <strong>${formatMoney(value)}</strong>
+ <small><span class="column-count">${cards.length}</span> deals</small>
  </div>
  </header>
  <div class="column-body" data-drop-stage="${stage.name}">
- ${cards.map(dealCard).join("") || `<div class="empty-state" style="padding:20px;font-size:12px;">Drop deals here</div>`}
+ ${cards.map(dealCard).join("") || ""}
  </div>
+ ${isManager() ? `<button type="button" class="column-add-deal" data-add-stage="${stage.name}">+ Add deal</button>` : ""}
  </section>
  `;
  })
  .join("");
 
  bindDealCards(board);
+ $$("[data-won]", board).forEach((b) => b.onclick = () => moveToStage(b.dataset.won, "Won"));
+ $$("[data-lost]", board).forEach((b) => b.onclick = () => moveToStage(b.dataset.lost, "Lost"));
+ $$("[data-add-stage]", board).forEach((b) => b.onclick = () => {
+ const rec = blankRecord();
+ rec.stage = b.dataset.addStage;
+ openDrawer(null, true, rec);
+ });
 
  $$(".quick-assign", board).forEach((sel) => {
  sel.addEventListener("change", (e) => {
@@ -1042,8 +1179,8 @@
  $$(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${activeView}`));
  $$(".nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === activeView));
  const titles = staffViewActive()
- ? { pipeline: "My Pipeline", stores: "My Stores", contacts: "My Contacts", tasks: "My Tasks", settings: "Settings" }
- : { pipeline: "Sales Pipeline", stores: "Pharmacy Stores", contacts: "Contacts", tasks: "Team Tasks", settings: "Settings" };
+ ? { pipeline: "My deals", stores: "My organizations", contacts: "My people", tasks: "My activities", settings: "Settings" }
+ : { pipeline: "Deals", stores: "Organizations", contacts: "People", tasks: "Activities", settings: "Settings" };
  $("#page-title").textContent = titles[activeView] || "CRM";
  $("#revenue-hero").style.display = (activeView === "settings" || activeView === "tasks") ? "none" : "block";
  if (activeView === "pipeline") renderPipeline();
@@ -1064,18 +1201,131 @@
  return arr.map((v) => `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(v)}</option>`).join("");
  }
 
- function openDrawer(id, isNew = false) {
+ function openDrawer(id, isNew = false, preset = null) {
  const p = isNew
- ? blankRecord()
+ ? (preset || blankRecord())
  : pharmacies.find((x) => x.id === id);
-
  if (!p) return;
 
- $("#drawer-title").textContent = isNew ? "Add new store" : p.name;
+ $("#drawer-title").textContent = isNew ? "New deal" : p.name;
  $("#drawer-sub").textContent = isNew
- ? "Create a new pharmacy in your pipeline"
- : [p.address, p.state, p.postcode].filter(Boolean).join(" ") || "No location set";
+ ? "Add a pharmacy to your pipeline"
+ : [p.contactName, p.address, p.state].filter(Boolean).join(" · ") || "No contact set";
 
+ if (isNew) {
+ dealDrawerTab = "details";
+ renderDealDrawerTab(p, "details", id, true);
+ } else {
+ renderDealDrawerTab(p, dealDrawerTab, id, false);
+ }
+ $("#drawer-backdrop").classList.add("open");
+ $("#drawer").classList.add("open");
+ }
+
+ function renderDealDrawerTab(p, tab, id, isNew) {
+ const banner = $("#drawer-deal-banner");
+ const tabs = $("#drawer-tabs");
+ if (isNew) {
+ banner.hidden = true;
+ tabs.hidden = true;
+ return renderDealDetailsForm(p, id, isNew);
+ }
+ banner.hidden = false;
+ tabs.hidden = false;
+ const val = saleValue(p);
+ const stage = normalizeStage(p.stage);
+ banner.innerHTML = `
+ <div>
+ <div class="deal-banner-value">${val ? formatMoney(val) : "No value"}</div>
+ <div class="deal-banner-meta">${escapeHtml(p.assignee || "Unassigned")} · ${escapeHtml(stage)} · ${daysInStage(p)} days in stage</div>
+ <div class="deal-stage-pills">${cfg.pipelineStages.filter((s) => s.name !== "Lost").map((s) =>
+ `<button type="button" class="deal-stage-pill ${s.name === stage ? "active" : ""}" data-stage-pick="${s.name}" style="${s.name === stage ? `background:${s.color};border-color:${s.color}` : ""}">${s.name}</button>`
+ ).join("")}</div>
+ </div>
+ <div class="deal-banner-actions">
+ ${p.status === "Open" ? `<button type="button" class="btn btn-small btn-won" id="deal-mark-won">Won</button><button type="button" class="btn btn-small btn-lost" id="deal-mark-lost">Lost</button>` : ""}
+ </div>`;
+ $$("[data-stage-pick]", banner).forEach((btn) => btn.onclick = () => { moveToStage(id, btn.dataset.stagePick); openDrawer(id); });
+ $("#deal-mark-won")?.addEventListener("click", () => moveToStage(id, "Won"));
+ $("#deal-mark-lost")?.addEventListener("click", () => moveToStage(id, "Lost"));
+
+ tabs.innerHTML = [
+ { id: "activity", label: "Activity" },
+ { id: "notes", label: "Notes" },
+ { id: "details", label: "Deal info" }
+ ].map((t) => `<button type="button" class="${tab === t.id ? "active" : ""}" data-deal-tab="${t.id}">${t.label}</button>`).join("");
+ $$("[data-deal-tab]", tabs).forEach((btn) => btn.onclick = () => {
+ dealDrawerTab = btn.dataset.dealTab;
+ renderDealDrawerTab(p, dealDrawerTab, id, false);
+ });
+
+ if (tab === "notes") return renderDealNotes(p, id);
+ if (tab === "details") return renderDealDetailsForm(p, id, false);
+ return renderDealActivity(p, id);
+ }
+
+ function renderDealActivity(p, id) {
+ const acts = [...dealActivities(p), ...tasks.filter((t) => t.pharmacyId === id).map((t) => ({
+ id: t.id, type: "task", note: t.title, createdAt: t.createdAt || today(), createdBy: t.createdBy || "", status: t.status, dueDate: t.dueDate
+ }))].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+
+ $("#drawer-body").innerHTML = `
+ <div class="activity-compose">
+ ${(cfg.activityTypes || []).map((a) => `<button type="button" class="activity-type-btn" data-act-type="${a.id}">${activityIcon(a.id)} ${a.label}</button>`).join("")}
+ </div>
+ <div class="activity-input-row" id="activity-input-row" hidden>
+ <input id="activity-note-input" placeholder="What happened? e.g. Left voicemail with pharmacist" />
+ <button type="button" class="btn btn-primary btn-small" id="activity-save">Log</button>
+ </div>
+ <div class="activity-timeline">
+ ${acts.length ? acts.map((a) => `
+ <article class="activity-item">
+ <div class="activity-icon ${escapeHtml(a.type)}">${activityIcon(a.type)}</div>
+ <div class="activity-body">
+ <strong>${escapeHtml(a.type === "stage" ? `Stage → ${a.toStage || ""}` : (cfg.activityTypes?.find((x) => x.id === a.type)?.label || a.type))}</strong>
+ <p>${escapeHtml(a.note || "")}${a.type === "task" ? (a.status === "done" ? " (done)" : ` — due ${a.dueDate || ""}`) : ""}</p>
+ <div class="activity-meta">${escapeHtml(a.createdBy || "")} · ${escapeHtml(String(a.createdAt).slice(0, 16).replace("T", " "))}</div>
+ </div>
+ </article>`).join("") : `<div class="empty-state" style="padding:24px;">No activity yet — log a call, email, or note above</div>`}
+ </div>`;
+
+ let pendingType = "note";
+ $$("[data-act-type]", $("#drawer-body")).forEach((btn) => btn.onclick = () => {
+ pendingType = btn.dataset.actType;
+ $("#activity-input-row").hidden = false;
+ $("#activity-note-input")?.focus();
+ });
+ $("#activity-save")?.addEventListener("click", () => {
+ const note = $("#activity-note-input")?.value?.trim();
+ if (!note) return toast("Enter activity details");
+ logActivity(id, pendingType, note);
+ save();
+ $("#activity-note-input").value = "";
+ $("#activity-input-row").hidden = true;
+ renderDealActivity(p, id);
+ toast("Activity logged");
+ });
+ }
+
+ function renderDealNotes(p, id) {
+ $("#drawer-body").innerHTML = `
+ <form id="notes-form">
+ <label class="field full"><span>Deal notes</span><textarea id="deal-notes-area" rows="8" placeholder="Conversation history, objections, next steps...">${escapeHtml(p.notes || "")}</textarea></label>
+ <label class="field full"><span>Why this deal matters</span><textarea id="deal-why-area" rows="3">${escapeHtml(p.description || p.whyRelevant || "")}</textarea></label>
+ <button type="submit" class="btn btn-primary btn-small">Save notes</button>
+ </form>`;
+ $("#notes-form").onsubmit = (e) => {
+ e.preventDefault();
+ p.notes = $("#deal-notes-area").value.trim();
+ p.description = p.whyRelevant = $("#deal-why-area").value.trim();
+ p.lastActivity = today();
+ logActivity(id, "note", "Updated deal notes");
+ save();
+ toast("Notes saved");
+ };
+ }
+
+ function renderDealDetailsForm(p, id, isNew) {
  $("#drawer-body").innerHTML = `
  <form id="deal-form" class="form-grid">
  <label class="field full"><span>Store name *</span><input name="name" required value="${attr(p.name)}"></label>
@@ -1168,11 +1418,10 @@
  $("#btn-quick-task")?.addEventListener("click", () => {
  const title = $("#quick-task-title")?.value?.trim();
  if (!title) return toast("Enter a task description");
- addTask({
- pharmacyId: id,
- title,
- assignee: $("#quick-task-assignee")?.value || "Unassigned"
- });
+ const assignee = $("#quick-task-assignee")?.value || "Unassigned";
+ addTask({ pharmacyId: id, title, assignee });
+ logActivity(id, "task", `Task created: ${title}`, { assignee });
+ save();
  $("#quick-task-title").value = "";
  });
 
@@ -1235,9 +1484,6 @@
  closeDrawer();
  renderActiveView();
  };
-
- $("#drawer-backdrop").classList.add("open");
- $("#drawer").classList.add("open");
  }
 
  function blankRecord() {
@@ -1247,7 +1493,8 @@
  relevance: "Medium", whyRelevant: "", description: "", stage: "Appointment", status: "Open",
  priority: "Medium", source: "Outbound", assignee: "Unassigned", closeDate: "", lossReason: "",
  notes: "", linkedin: "", contactName: "", contactTitle: "Pharmacist", contactType: "Prospect",
- lastActivity: today(), createdAt: today(), potentialSale: true, orderTier: 500
+ lastActivity: today(), createdAt: today(), stageChangedAt: today(), activities: [],
+ potentialSale: true, orderTier: 500
  };
  return applyTier(r, 500);
  }
@@ -1255,6 +1502,8 @@
  function closeDrawer() {
  $("#drawer-backdrop").classList.remove("open");
  $("#drawer").classList.remove("open");
+ $("#drawer-deal-banner").hidden = true;
+ $("#drawer-tabs").hidden = true;
  }
 
  function deletePharmacy(id) {

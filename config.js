@@ -8,13 +8,20 @@ window.CRM_CONFIG = {
  },
  currency: "AUD",
  pipelineStages: [
- { id: "appointment", name: "Appointment", color: "#5B8DEF", order: 1 },
- { id: "proposal", name: "Proposal", color: "#8B5CF6", order: 2 },
- { id: "negotiation", name: "Negotiation", color: "#F59E0B", order: 3 },
- { id: "agreement", name: "Agreement", color: "#10B981", order: 4 },
- { id: "pilot", name: "Pilot", color: "#06B6D4", order: 5 },
- { id: "won", name: "Won", color: "#22C55E", order: 6 },
- { id: "lost", name: "Lost", color: "#EF4444", order: 7 }
+ { id: "appointment", name: "Appointment", color: "#5B8DEF", order: 1, probability: 10 },
+ { id: "proposal", name: "Proposal", color: "#8B5CF6", order: 2, probability: 20 },
+ { id: "negotiation", name: "Negotiation", color: "#F59E0B", order: 3, probability: 40 },
+ { id: "agreement", name: "Agreement", color: "#10B981", order: 4, probability: 60 },
+ { id: "pilot", name: "Pilot", color: "#06B6D4", order: 5, probability: 80 },
+ { id: "won", name: "Won", color: "#22C55E", order: 6, probability: 100 },
+ { id: "lost", name: "Lost", color: "#EF4444", order: 7, probability: 0 }
+ ],
+ activityTypes: [
+ { id: "call", label: "Call", icon: "call" },
+ { id: "email", label: "Email", icon: "email" },
+ { id: "meeting", label: "Meeting", icon: "meeting" },
+ { id: "note", label: "Note", icon: "note" },
+ { id: "task", label: "Task", icon: "task" }
  ],
  contactTypes: ["All", "Prospect", "Account"],
  dealStatuses: ["All", "Open", "Won", "Lost"],
