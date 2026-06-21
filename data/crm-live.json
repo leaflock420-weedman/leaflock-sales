@@ -45,6 +45,14 @@
       "stageChangedAt": "2026-06-21",
       "activities": [
         {
+          "id": "act-2",
+          "type": "task",
+          "note": "Task created: call",
+          "createdAt": "2026-06-21T22:44:52.722Z",
+          "createdBy": "lewis",
+          "assignee": "Sarah"
+        },
+        {
           "id": "act-1",
           "type": "stage",
           "note": "Moved from Proposal to Negotiation",
@@ -27839,7 +27847,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-21T22:44:58.424Z",
+  "savedAt": "2026-06-21T22:45:07.064Z",
   "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
