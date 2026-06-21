@@ -1,0 +1,6 @@
+2026/06/22-05:45:08.348 c8cc Reusing MANIFEST C:\Users\wordo\leaflock-pharmacy-crm\.edge-automation\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/06/22-05:45:08.348 c8cc Recovering log #4
+2026/06/22-05:45:08.349 c8cc Reusing old log C:\Users\wordo\leaflock-pharmacy-crm\.edge-automation\Default\EdgeCoupons/coupons_data.db/000004.log 
+2026/06/22-05:45:08.383 dd3c Level-0 table #8: started
+2026/06/22-05:45:08.393 dd3c Level-0 table #8: 682852 bytes OK
+2026/06/22-05:45:08.403 dd3c Delete type=0 #4

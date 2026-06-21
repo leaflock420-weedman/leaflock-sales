@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>LeafLock Sales — Team login</title>
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="login.css">
+</head>
+<body>
+  <main class="login-card">
+    <img src="icons/icon-192.png" width="56" height="56" alt="">
+    <h1>LeafLock Sales</h1>
+    <p class="sub">Team-only CRM. Enter the shared team password.</p>
+    <form id="login-form">
+      <label class="field">
+        <span>Your name</span>
+        <input id="user-name" name="userName" autocomplete="name" placeholder="e.g. Lewis" required>
+      </label>
+      <label class="field">
+        <span>Team password</span>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <p id="error" class="error" hidden></p>
+      <button type="submit" class="btn">Sign in</button>
+    </form>
+    <p class="hint">Password is shared with your sales team. Ask Lewis if you don't have it.</p>
+  </main>
+  <script>
+    const form = document.getElementById("login-form");
+    const error = document.getElementById("error");
+    const saved = localStorage.getItem("leaflock-user-name");
+    if (saved) document.getElementById("user-name").value = saved;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      error.hidden = true;
+      const userName = document.getElementById("user-name").value.trim();
+      const password = document.getElementById("password").value;
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ userName, password })
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          error.textContent = data.error || "Sign in failed";
+          error.hidden = false;
+          return;
+        }
+        localStorage.setItem("leaflock-user-name", userName);
+        location.href = "/";
+      } catch {
+        error.textContent = "Could not reach server";
+        error.hidden = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 param(
     [string]$ApiKey = $env:GODADDY_API_KEY,
     [string]$ApiSecret = $env:GODADDY_API_SECRET,
-    [string]$Target = "leaflock-sales.onrender.com"
+    [string]$Target = "leaflock-sales.onrender.com"  # NOT leaflock.com.au
 )
 
 $domain = "leaflock.com.au"

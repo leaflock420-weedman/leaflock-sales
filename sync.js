@@ -5,6 +5,8 @@
   let pollTimer = null;
   let pushing = false;
   let lastRemoteAt = 0;
+  let serverSync = false;
+  let serverConfig = null;
 
   function loadSettings() {
     try {
@@ -26,12 +28,39 @@
     localStorage.setItem(USER_KEY, name.trim());
   }
 
+  function usesServer() {
+    return serverSync;
+  }
+
   function isEnabled() {
+    if (serverSync) return true;
     const s = loadSettings();
     return Boolean(s.enabled && s.binId && s.masterKey);
   }
 
+  async function detectServer() {
+    try {
+      const res = await fetch("/api/config", { credentials: "include" });
+      if (!res.ok) return null;
+      serverConfig = await res.json();
+      serverSync = Boolean(serverConfig.serverSync);
+      return serverConfig;
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function fetchRemote() {
+    if (serverSync) {
+      const res = await fetch("/api/sync", { credentials: "include" });
+      if (res.status === 401) {
+        location.href = "/login.html";
+        throw new Error("Not signed in");
+      }
+      if (!res.ok) throw new Error(`Sync read failed (${res.status})`);
+      return res.json();
+    }
+
     const s = loadSettings();
     if (!s.binId || !s.masterKey) throw new Error("Sync not configured");
     const res = await fetch(`https://api.jsonbin.io/v3/b/${s.binId}/latest`, {
@@ -43,6 +72,27 @@
   }
 
   async function pushRemote(payload) {
+    if (serverSync) {
+      pushing = true;
+      try {
+        const res = await fetch("/api/sync", {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.status === 401) {
+          location.href = "/login.html";
+          return;
+        }
+        if (!res.ok) throw new Error(`Sync write failed (${res.status})`);
+        lastRemoteAt = Date.now();
+        return true;
+      } finally {
+        pushing = false;
+      }
+    }
+
     const s = loadSettings();
     if (!s.binId || !s.masterKey) return;
     pushing = true;
@@ -91,6 +141,9 @@
     currentUser,
     setCurrentUser,
     isEnabled,
+    usesServer,
+    detectServer,
+    getServerConfig: () => serverConfig,
     fetchRemote,
     pushRemote,
     startPolling,

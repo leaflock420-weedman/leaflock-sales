@@ -628,8 +628,11 @@ label.field input, label.field select, label.field textarea {
 }
 
 @media (max-width: 900px) {
+  html { -webkit-text-size-adjust: 100%; }
+  body { overflow-x: hidden; }
+
   .app-shell { grid-template-columns: 1fr; }
-  .menu-toggle, .sidebar-close { display: grid; }
+  .menu-toggle, .sidebar-close { display: grid; min-width: 44px; min-height: 44px; }
   .sidebar {
     position: fixed;
     left: 0;
@@ -638,14 +641,97 @@ label.field input, label.field select, label.field textarea {
     transform: translateX(-105%);
     transition: transform 0.25s ease;
     box-shadow: var(--shadow);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .sidebar.open { transform: translateX(0); }
+  .nav button { min-height: 48px; padding: 12px 14px; }
+
+  .site-header { padding: 12px 14px; padding-top: max(12px, env(safe-area-inset-top)); gap: 10px; }
+  .header-row { flex-wrap: wrap; }
+  .sync-status { font-size: 10px; max-width: 42vw; overflow: hidden; text-overflow: ellipsis; }
+  .install-btn { display: none; }
+
+  .header-tools { flex-direction: column; align-items: stretch; width: 100%; }
+  .search-box { min-width: 0; padding: 12px 16px; }
+  .search-box input { font-size: 16px; }
+  .toolbar { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toolbar .btn { flex: 1; min-height: 44px; justify-content: center; }
+
+  .chip-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+    margin: 0 -2px;
+  }
+  .chip-filters::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .content { padding: 12px 14px calc(24px + env(safe-area-inset-bottom)); }
+  .revenue-hero { padding: 18px 16px; border-radius: 16px; }
+  .revenue-tiers { grid-template-columns: 1fr 1fr; }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .metric-card { padding: 14px; }
+  .metric-card strong { font-size: 24px; }
+
+  .pipeline-board {
+    gap: 12px;
+    min-height: calc(100dvh - 280px);
+    padding-bottom: 16px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pipeline-column {
+    flex: 0 0 min(86vw, 320px);
+    max-height: calc(100dvh - 220px);
+  }
+  .deal-card {
+    padding: 14px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .deal-card h4 { font-size: 15px; }
+  .deal-foot { flex-wrap: wrap; gap: 8px; }
+  .quick-assign { max-width: none; flex: 1; min-height: 40px; font-size: 13px; }
+
+  .card-grid { grid-template-columns: 1fr; gap: 12px; }
+  .store-card, .contact-card, .task-card { padding: 16px; }
+
   .form-grid { grid-template-columns: 1fr; }
-  .drawer { width: 100%; }
-  .header-tools { flex-direction: column; align-items: stretch; }
-  .toolbar { width: 100%; }
-  .toolbar .btn { flex: 1; }
-  .task-inline-row { grid-template-columns: 1fr; }
+  label.field input, label.field select, label.field textarea { font-size: 16px; padding: 12px; }
+
+  .drawer {
+    width: 100%;
+    height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .drawer-header { padding: 16px; padding-top: max(16px, env(safe-area-inset-top)); }
+  .drawer-body { padding: 16px 16px 32px; }
+  .drawer-actions { flex-direction: column-reverse; }
+  .drawer-actions > div { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .drawer-actions .btn { min-height: 44px; }
+
+  .task-inline-row { grid-template-columns: 1fr; gap: 10px; }
+  .task-inline-row input, .task-inline-row select { font-size: 16px; min-height: 44px; }
+  .tasks-toolbar-inner { flex-direction: column; align-items: stretch; }
+  .tasks-actions { width: 100%; }
+  .tasks-actions .btn, .tasks-actions select { flex: 1; min-height: 44px; }
+
+  .settings-grid { grid-template-columns: 1fr; }
+  .btn, .btn-small { min-height: 44px; }
+  .icon-btn { min-width: 44px; min-height: 44px; }
+}
+
+@media (max-width: 400px) {
+  .revenue-tiers { grid-template-columns: 1fr; }
+  .metrics { grid-template-columns: 1fr; }
+  .toolbar { grid-template-columns: 1fr; }
 }
 
 @media (display-mode: standalone) {

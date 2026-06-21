@@ -8,6 +8,25 @@ services:
     branch: main
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /login.html
     domains:
       - sales.leaflock.com.au
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_URL
+        value: https://sales.leaflock.com.au
+      - key: CRM_EMAIL_FROM
+        value: LeafLock Sales <info@leaflock.com.au>
+      - key: CRM_MANAGER_EMAIL
+        value: info@leaflock.com.au
+      - key: CRM_TEAM_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: JSONBIN_MASTER_KEY
+        sync: false
+      - key: JSONBIN_BIN_ID
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false

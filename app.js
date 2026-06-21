@@ -586,15 +586,39 @@
  $$(".task-open-store", grid).forEach((b) => b.onclick = () => openDrawer(b.dataset.id));
  }
 
+ function formatMemberEmails() {
+ const map = teamConfig.memberEmails || {};
+ return teamConfig.members.map((m) => `${m}: ${map[m] || ""}`).join("\n");
+ }
+
+ function parseMemberEmails(text) {
+ const map = {};
+ text.split("\n").forEach((line) => {
+ const idx = line.indexOf(":");
+ if (idx < 1) return;
+ const name = line.slice(0, idx).trim();
+ const email = line.slice(idx + 1).trim();
+ if (name && email) map[name] = email;
+ });
+ return map;
+ }
+
  function renderSettings() {
  const syncSettings = sync?.loadSettings?.() || {};
  const userName = sync?.currentUser?.() || "";
- $("#settings-content").innerHTML = `
- <div class="settings-grid">
- <article class="settings-card settings-wide">
+ const serverMode = sync?.usesServer?.();
+ const serverCfg = sync?.getServerConfig?.() || {};
+ const syncBlock = serverMode
+ ? `<article class="settings-card settings-wide">
+ <h3>Team sync</h3>
+ <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">Cloud sync is managed on the server. Everyone signed in shares the same live pipeline.</p>
+ <p style="margin:12px 0 0;font-size:13px;">Email alerts: <strong>${serverCfg.emailEnabled ? "On" : "Off"}</strong> (from info@leaflock.com.au)</p>
+ <button class="btn btn-ghost btn-small" id="btn-logout" type="button" style="margin-top:14px;">Sign out</button>
+ </article>`
+ : `<article class="settings-card settings-wide">
  <h3>Team sync (multiple users)</h3>
  <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 12px;">
- Share one live CRM across your sales team. Create a free bin at <strong>jsonbin.io</strong>, paste the Bin ID and Master Key below, and share those two values with staff.
+ Share one live CRM. Create a free bin at <strong>jsonbin.io</strong>, paste Bin ID and Master Key below.
  </p>
  <label class="field"><span>Your name (shown on edits)</span><input id="set-user-name" value="${attr(userName)}" placeholder="e.g. Lewis"></label>
  <label class="field" style="margin-top:10px;"><span>JSONBin Bin ID</span><input id="set-bin-id" value="${attr(syncSettings.binId || "")}" placeholder="e.g. 65f1a2b3c4d5e6f7g8h9i0j"></label>
@@ -604,13 +628,23 @@
  <button class="btn btn-primary btn-small" id="btn-save-sync" type="button">Save sync settings</button>
  <button class="btn btn-secondary btn-small" id="btn-pull-sync" type="button">Pull latest now</button>
  </div>
- </article>
+ </article>`;
+
+ $("#settings-content").innerHTML = `
+ <div class="settings-grid">
+ ${syncBlock}
  <article class="settings-card">
  <h3>Team roster</h3>
  <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">One name per line - used for assignees and auto-assign.</p>
  <textarea id="set-team-members" rows="5">${escapeHtml(teamConfig.members.join("\n"))}</textarea>
  <button class="btn btn-secondary btn-small" id="btn-save-team" type="button" style="margin-top:10px;">Save roster</button>
  <button class="btn btn-ghost btn-small" id="btn-auto-assign" type="button" style="margin-top:10px;">Auto-assign open deals</button>
+ </article>
+ <article class="settings-card settings-wide">
+ <h3>Staff emails (for task &amp; follow-up alerts)</h3>
+ <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">One per line: <code>Name: email@leaflock.com.au</code> — matches roster names exactly.</p>
+ <textarea id="set-member-emails" rows="5" placeholder="Lewis: lewis@leaflock.com.au">${escapeHtml(formatMemberEmails())}</textarea>
+ <button class="btn btn-secondary btn-small" id="btn-save-emails" type="button" style="margin-top:10px;">Save emails</button>
  </article>
  <article class="settings-card">
  <h3>Pipeline stages</h3>
@@ -637,7 +671,18 @@
  <p style="color:var(--muted);font-size:12px;margin:12px 0 0;">~20% of elite compounding &amp; popular chains get the $3,025 tier. Click any store to change tier, set a custom $, or remove the forecast.</p>
  </article>
  </div>`;
- $("#btn-save-sync").onclick = () => {
+ $("#btn-logout")?.addEventListener("click", async () => {
+ await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+ location.href = "/login.html";
+ });
+
+ $("#btn-save-emails")?.addEventListener("click", () => {
+ teamConfig.memberEmails = parseMemberEmails($("#set-member-emails").value);
+ save();
+ toast("Staff emails saved");
+ });
+
+ if ($("#btn-save-sync")) $("#btn-save-sync").onclick = () => {
  const members = teamConfig.members;
  sync.saveSettings({
  enabled: $("#set-sync-enabled").checked,
@@ -655,7 +700,7 @@
  updateSyncStatus("Local only");
  }
  };
- $("#btn-pull-sync").onclick = async () => {
+ if ($("#btn-pull-sync")) $("#btn-pull-sync").onclick = async () => {
  if (!sync.isEnabled()) return toast("Enable team sync first");
  try {
  const remote = await sync.fetchRemote();
@@ -1057,6 +1102,7 @@
  }
 
  async function initSync() {
+ await sync?.detectServer?.();
  if (!sync?.isEnabled?.()) {
  updateSyncStatus("Local only");
  return;
@@ -1066,25 +1112,28 @@
  if (remote?.pharmacies?.length) {
  applyRemoteState(remote, true);
  sync.markPushed();
+ } else if (remote?.teamConfig) {
+ applyRemoteState(remote, true);
+ sync.markPushed();
  }
  sync.startPolling(applyRemoteState);
- updateSyncStatus("Team live");
+ updateSyncStatus(sync?.usesServer?.() ? "Team live (cloud)" : "Team live");
  } catch (_) {
  updateSyncStatus("Sync offline", true);
  }
  }
 
- function init() {
+ async function init() {
  if (!window.SEED_PHARMACIES?.length) {
  document.body.innerHTML = `<div style="padding:40px;font-family:Segoe UI,sans-serif;"><h1>Missing data file</h1><p>Keep <strong>seed.js</strong> in the same folder as this HTML file.</p></div>`;
  return;
  }
  load();
- promptUserName();
  bindUi();
  renderActiveView();
- initSync();
+ await initSync();
+ if (!sync?.usesServer?.()) promptUserName();
  }
 
- document.addEventListener("DOMContentLoaded", init);
+ document.addEventListener("DOMContentLoaded", () => { init(); });
 })();
