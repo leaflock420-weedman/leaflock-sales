@@ -27794,6 +27794,17 @@
   ],
   "tasks": [
     {
+      "id": "task-2",
+      "pharmacyId": "pharm-1",
+      "pharmacyName": "Pharmacy (02) 9550 0906",
+      "title": "call",
+      "assignee": "Sarah",
+      "dueDate": "2026-06-21",
+      "status": "open",
+      "createdBy": "lewis",
+      "createdAt": "2026-06-21"
+    },
+    {
       "id": "task-1",
       "pharmacyId": "pharm-2",
       "pharmacyName": "Pharmacy (03) 9802 6618",
@@ -27828,7 +27839,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-21T22:37:33.528Z",
+  "savedAt": "2026-06-21T22:44:58.424Z",
   "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
