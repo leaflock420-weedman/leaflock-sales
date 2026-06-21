@@ -135,7 +135,7 @@
           onRemote(remote, true);
         }
       } catch (_) {}
-    }, 8000);
+    }, 5000);
   }
 
   window.CRM_SYNC = {

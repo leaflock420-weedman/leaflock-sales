@@ -38,7 +38,7 @@
         <button type="button" class="active" data-view="pipeline"><span class="nav-icon" aria-hidden="true">#</span> Pipeline</button>
         <button type="button" data-view="stores"><span class="nav-icon" aria-hidden="true">O</span> Stores</button>
         <button type="button" data-view="contacts"><span class="nav-icon" aria-hidden="true">@</span> Contacts</button>
-        <button type="button" data-view="tasks"><span class="nav-icon" aria-hidden="true">+</span> Tasks</button>
+        <button type="button" data-view="tasks"><span class="nav-icon" aria-hidden="true">+</span> Tasks<span id="nav-task-badge" class="nav-badge" hidden>0</span></button>
         <button type="button" data-view="settings"><span class="nav-icon" aria-hidden="true">*</span> Settings</button>
       </nav>
 
@@ -127,6 +127,19 @@
     </header>
     <div id="drawer-body" class="drawer-body"></div>
   </aside>
+
+  <div id="task-alert-backdrop" class="task-alert-backdrop" hidden aria-hidden="true"></div>
+  <div id="task-alert" class="task-alert" role="alertdialog" aria-labelledby="task-alert-title" hidden>
+    <div class="task-alert-inner">
+      <p class="task-alert-eyebrow" id="task-alert-eyebrow">New task for you</p>
+      <h2 id="task-alert-title">Follow up</h2>
+      <p id="task-alert-meta" class="task-alert-meta"></p>
+      <div class="task-alert-actions">
+        <button type="button" class="btn btn-primary" id="task-alert-view">View my tasks</button>
+        <button type="button" class="btn btn-ghost" id="task-alert-dismiss">Got it</button>
+      </div>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

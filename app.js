@@ -15,6 +15,7 @@
  let activeView = "pipeline";
  let filters = { state: "", type: "", relevance: "", stage: "", status: "", assignee: "", search: "" };
  let dragId = null;
+ const taskAlertSeen = new Set();
  const sync = window.CRM_SYNC;
 
  const $ = (sel, root = document) => root.querySelector(sel);
@@ -34,6 +35,68 @@
 
  function staffName() {
  return (sync?.currentUser?.() || localStorage.getItem("leaflock-user-name") || "").trim();
+ }
+
+ function samePerson(a, b) {
+ if (!a || !b) return false;
+ return a.trim().toLowerCase() === b.trim().toLowerCase();
+ }
+
+ function markTasksSeen(list) {
+ (list || []).forEach((t) => { if (t?.id) taskAlertSeen.add(t.id); });
+ }
+
+ function detectIncomingTasks(prevTasks, nextTasks) {
+ const me = staffName();
+ if (!me) return [];
+ const prevMap = new Map((prevTasks || []).map((t) => [t.id, t]));
+ const incoming = [];
+ for (const task of nextTasks || []) {
+ if (task.status === "done") continue;
+ if (!samePerson(task.assignee, me)) continue;
+ const old = prevMap.get(task.id);
+ if (!old || !samePerson(old.assignee, me)) incoming.push(task);
+ }
+ return incoming;
+ }
+
+ function myOpenTasks() {
+ const me = staffName();
+ return tasks.filter((t) => t.status !== "done" && samePerson(t.assignee, me));
+ }
+
+ function showTaskAlert(task, actor = "Your manager") {
+ const backdrop = $("#task-alert-backdrop");
+ const modal = $("#task-alert");
+ if (!backdrop || !modal) {
+ toast(`New task from ${actor}: ${task.title}`);
+ return;
+ }
+ $("#task-alert-eyebrow").textContent = `${actor} assigned you a task`;
+ $("#task-alert-title").textContent = task.title;
+ $("#task-alert-meta").innerHTML = [
+ task.pharmacyName ? `<strong>Store:</strong> ${escapeHtml(task.pharmacyName)}` : "",
+ task.dueDate ? `<strong>Due:</strong> ${escapeHtml(task.dueDate)}` : ""
+ ].filter(Boolean).join("<br>") || "Open Tasks to mark it done when finished.";
+ backdrop.hidden = false;
+ backdrop.setAttribute("aria-hidden", "false");
+ modal.hidden = false;
+ const dismiss = () => {
+ backdrop.hidden = true;
+ backdrop.setAttribute("aria-hidden", "true");
+ modal.hidden = true;
+ };
+ $("#task-alert-dismiss").onclick = dismiss;
+ backdrop.onclick = dismiss;
+ $("#task-alert-view").onclick = () => {
+ dismiss();
+ activeView = "tasks";
+ if (staffViewActive()) taskFilter = "mine";
+ renderActiveView();
+ closeSidebar();
+ };
+ updateTaskBadge(true);
+ toast(`New task: ${task.title}`);
  }
 
  function isManager() {
@@ -76,15 +139,29 @@
  };
  }
 
- function applyRemoteState(remote, silent = false) {
+ function applyRemoteState(remote, silent = false, notify = true) {
  if (!remote) return;
+ const prevTasks = [...tasks];
+ const actor = remote.updatedBy || "Your manager";
+ let newForMe = 0;
  if (Array.isArray(remote.pharmacies) && remote.pharmacies.length) pharmacies = remote.pharmacies;
- if (Array.isArray(remote.tasks)) tasks = remote.tasks;
+ if (Array.isArray(remote.tasks)) {
+ tasks = remote.tasks;
+ if (notify) {
+ const incoming = detectIncomingTasks(prevTasks, remote.tasks).filter((t) => !taskAlertSeen.has(t.id));
+ newForMe = incoming.length;
+ incoming.forEach((t) => {
+ taskAlertSeen.add(t.id);
+ showTaskAlert(t, actor);
+ });
+ }
+ }
  if (remote.teamConfig) teamConfig = { ...teamConfig, ...remote.teamConfig };
  localStorage.setItem(cfg.storageKey, JSON.stringify(buildPayload()));
  refreshAssigneeFilters();
  applyMyDealsFilter();
  updateStaffUi();
+ updateTaskBadge(newForMe > 0);
  renderActiveView();
  updateSyncStatus(remote.updatedBy ? `Team live | ${remote.updatedBy}` : "Team live");
  if (!silent) toast("Team data updated");
@@ -149,22 +226,33 @@
  return `task-${Math.max(0, ...nums) + 1}`;
  }
 
+ function resolveAssignee(name) {
+ const raw = (name || "").trim();
+ if (!raw) return "Unassigned";
+ const hit = teamConfig.members.find((m) => samePerson(m, raw));
+ return hit || raw;
+ }
+
  function addTask({ pharmacyId, title, assignee, dueDate }) {
  const p = pharmacies.find((x) => x.id === pharmacyId);
- tasks.unshift({
+ const resolvedAssignee = resolveAssignee(assignee);
+ const task = {
  id: nextTaskId(),
  pharmacyId: pharmacyId || "",
  pharmacyName: p?.name || "",
  title: title || "Follow up",
- assignee: assignee || "Unassigned",
+ assignee: resolvedAssignee,
  dueDate: dueDate || today(),
  status: "open",
  createdBy: sync?.currentUser?.() || "Team member",
  createdAt: today()
- });
+ };
+ tasks.unshift(task);
+ taskAlertSeen.add(task.id);
  save();
+ updateTaskBadge();
  renderActiveView();
- toast("Task added");
+ toast(resolvedAssignee === staffName() ? "Task added" : `Task sent to ${resolvedAssignee}`);
  }
 
  function completeTask(id) {
@@ -181,6 +269,71 @@
  tasks = tasks.filter((t) => t.id !== id);
  save();
  renderActiveView();
+ }
+
+ function openTaskModal(pharmacyId = "") {
+ const p = pharmacyId ? pharmacies.find((x) => x.id === pharmacyId) : null;
+ const members = teamConfig.members.filter((m) => m && m !== "Unassigned");
+ const defaultAssignee = isManager()
+ ? (members.find((m) => !samePerson(m, staffName())) || members[0] || "Unassigned")
+ : staffName();
+ const assigneeOpts = members.map((m) => `<option value="${escapeHtml(m)}" ${samePerson(m, defaultAssignee) ? "selected" : ""}>${escapeHtml(m)}</option>`).join("");
+ const storeOpts = `<option value="">General (no store)</option>${pharmacies.slice(0, 200).map((ph) => `<option value="${escapeHtml(ph.id)}" ${ph.id === pharmacyId ? "selected" : ""}>${escapeHtml(ph.name)}</option>`).join("")}`;
+
+ $("#drawer-title").textContent = isManager() ? "Assign task to staff" : "Add task";
+ $("#drawer-sub").textContent = isManager()
+ ? "Sarah and the team get a popup as soon as this syncs"
+ : "Track your own follow-up";
+ $("#drawer-body").innerHTML = `
+ <form id="task-form" class="form-grid">
+ <label class="field full"><span>What needs doing? *</span><input id="task-title" required placeholder="e.g. Call about humidity packs"></label>
+ <label class="field"><span>Assign to *</span><select id="task-assignee" ${isManager() ? "" : "disabled"}>${assigneeOpts}</select></label>
+ <label class="field"><span>Due date</span><input id="task-due" type="date" value="${today()}"></label>
+ <label class="field full"><span>Linked store (optional)</span><select id="task-store">${storeOpts}</select></label>
+ <div class="drawer-actions full">
+ <button type="button" class="btn btn-ghost" id="task-form-cancel">Cancel</button>
+ <button type="submit" class="btn btn-primary">${isManager() ? "Assign task" : "Save task"}</button>
+ </div>
+ </form>`;
+ openDrawerPanel();
+
+ $("#task-form-cancel").onclick = closeDrawer;
+ $("#task-form").onsubmit = (e) => {
+ e.preventDefault();
+ const title = $("#task-title").value.trim();
+ if (!title) return toast("Enter a task description");
+ const assignee = isManager() ? $("#task-assignee").value : staffName();
+ const storeId = $("#task-store").value;
+ addTask({
+ title,
+ assignee,
+ pharmacyId: storeId,
+ dueDate: $("#task-due").value || today()
+ });
+ closeDrawer();
+ if (isManager()) activeView = "tasks";
+ renderActiveView();
+ };
+ }
+
+ function openDrawerPanel() {
+ $("#drawer").classList.add("open");
+ $("#drawer-backdrop").classList.add("open");
+ }
+
+ function updateTaskBadge(pulse = false) {
+ const badge = $("#nav-task-badge");
+ if (!badge) return;
+ const count = myOpenTasks().length;
+ if (count > 0) {
+ badge.textContent = String(count);
+ badge.hidden = false;
+ badge.classList.toggle("pulse", pulse);
+ if (pulse) setTimeout(() => badge.classList.remove("pulse"), 2600);
+ } else {
+ badge.hidden = true;
+ badge.classList.remove("pulse");
+ }
  }
 
  function autoAssignDeals() {
@@ -628,28 +781,35 @@
  }
 
  function renderTasks() {
- const me = sync?.currentUser?.() || "Team member";
+ const me = staffName() || "Team member";
+ const staffTasks = staffViewActive();
  const list = tasks.filter((t) => {
- if (taskFilter === "mine") return t.assignee === me || t.createdBy === me;
+ if (taskFilter === "mine") return samePerson(t.assignee, me) || samePerson(t.createdBy, me);
  if (taskFilter === "open") return t.status !== "done";
  if (taskFilter === "done") return t.status === "done";
  return true;
  });
 
- $("#tasks-toolbar").innerHTML = `
- <div class="tasks-toolbar-inner">
- <div>
- <h2 style="margin:0;font-size:18px;">Team tasks</h2>
- <p style="margin:4px 0 0;color:var(--muted);font-size:13px;">Assign follow-ups to staff. Everyone sees the same list when team sync is on.</p>
- </div>
- <div class="tasks-actions">
- <select id="task-filter" class="filter-chip">
+ const filterUi = staffTasks
+ ? `<span class="pill pill-state">Assigned to ${escapeHtml(me)}</span>`
+ : `<select id="task-filter" class="filter-chip">
  <option value="open" ${taskFilter === "open" ? "selected" : ""}>Open tasks</option>
  <option value="mine" ${taskFilter === "mine" ? "selected" : ""}>Assigned to me</option>
  <option value="all" ${taskFilter === "all" ? "selected" : ""}>All tasks</option>
  <option value="done" ${taskFilter === "done" ? "selected" : ""}>Completed</option>
- </select>
- <button type="button" class="btn btn-primary btn-small" id="btn-new-task">+ New task</button>
+ </select>`;
+
+ $("#tasks-toolbar").innerHTML = `
+ <div class="tasks-toolbar-inner">
+ <div>
+ <h2 style="margin:0;font-size:18px;">${staffTasks ? "My tasks" : "Team tasks"}</h2>
+ <p style="margin:4px 0 0;color:var(--muted);font-size:13px;">${staffTasks
+ ? "Tasks Lewis assigns you pop up here automatically — usually within a few seconds."
+ : "Assign follow-ups to staff. They get a popup on their screen when you assign them."}</p>
+ </div>
+ <div class="tasks-actions">
+ ${filterUi}
+ ${isManager() ? `<button type="button" class="btn btn-primary btn-small" id="btn-new-task">+ Assign task</button>` : `<button type="button" class="btn btn-secondary btn-small" id="btn-new-task">+ Add my task</button>`}
  </div>
  </div>`;
 
@@ -675,13 +835,8 @@
  </article>`).join("")
  : `<div class="empty-state full">No tasks here. Open a store and use <strong>Quick task for staff</strong>, or click <strong>+ New task</strong>.</div>`;
 
- $("#task-filter").onchange = (e) => { taskFilter = e.target.value; renderTasks(); };
- $("#btn-new-task").onclick = () => {
- const title = prompt("Task description:");
- if (!title?.trim()) return;
- const assignee = prompt(`Assign to (${teamConfig.members.join(", ")}):`, teamConfig.members[0] || "Lewis");
- addTask({ title: title.trim(), assignee: assignee?.trim() || "Unassigned" });
- };
+ $("#task-filter")?.addEventListener("change", (e) => { taskFilter = e.target.value; renderTasks(); });
+ $("#btn-new-task").onclick = () => openTaskModal();
  $$(".task-done", grid).forEach((b) => b.onclick = () => completeTask(b.dataset.id));
  $$(".task-delete", grid).forEach((b) => b.onclick = () => { if (confirm("Delete this task?")) deleteTask(b.dataset.id); });
  $$(".task-open-store", grid).forEach((b) => b.onclick = () => openDrawer(b.dataset.id));
@@ -1264,14 +1419,12 @@
  }
  try {
  const remote = await sync.fetchRemote();
- if (remote?.pharmacies?.length) {
- applyRemoteState(remote, true);
- sync.markPushed();
- } else if (remote?.teamConfig) {
- applyRemoteState(remote, true);
+ if (remote?.pharmacies?.length || remote?.tasks?.length || remote?.teamConfig) {
+ applyRemoteState(remote, true, false);
+ markTasksSeen(tasks);
  sync.markPushed();
  }
- sync.startPolling(applyRemoteState);
+ sync.startPolling((remote) => applyRemoteState(remote, true, true));
  updateSyncStatus(sync?.usesServer?.() ? "Team live (cloud)" : "Team live");
  } catch (_) {
  updateSyncStatus("Sync offline", true);
@@ -1284,6 +1437,8 @@
  return;
  }
  load();
+ markTasksSeen(tasks);
+ if (isManager()) taskFilter = "open";
  bindUi();
  applyMyDealsFilter();
  updateStaffUi();
@@ -1291,6 +1446,7 @@
  await initSync();
  applyMyDealsFilter();
  updateStaffUi();
+ updateTaskBadge();
  renderActiveView();
  if (!sync?.usesServer?.()) promptUserName();
  applyMyDealsFilter();
@@ -1301,6 +1457,7 @@
  function updateStaffUi() {
  const active = staffViewActive();
  document.body.classList.toggle("staff-mode", active);
+ updateTaskBadge();
  const assigneeFilter = $("#filter-assignee");
  if (assigneeFilter) {
  assigneeFilter.closest(".filter-chip")?.classList.toggle("hidden-staff-filter", active);
