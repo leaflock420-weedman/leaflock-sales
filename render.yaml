@@ -9,8 +9,6 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /login.html
-    domains:
-      - sales.leaflock.com.au
     envVars:
       - key: NODE_ENV
         value: production
