@@ -150,7 +150,7 @@
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
-      "assignee": "Unassigned",
+      "assignee": "Sarah",
       "closeDate": "",
       "lossReason": "",
       "notes": "",
@@ -158,7 +158,7 @@
       "contactName": "",
       "contactTitle": "Pharmacist",
       "contactType": "Prospect",
-      "lastActivity": "2026-06-20",
+      "lastActivity": "2026-06-21",
       "createdAt": "2026-06-20",
       "potentialSale": true,
       "isPopular": true,
@@ -27815,7 +27815,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-21T22:32:15.567Z",
+  "savedAt": "2026-06-21T22:32:28.889Z",
   "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
