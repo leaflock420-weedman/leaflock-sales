@@ -17,7 +17,7 @@
       "relevance": "Medium",
       "whyRelevant": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
       "description": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
-      "stage": "Appointment",
+      "stage": "Proposal",
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
@@ -27815,7 +27815,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-21T22:32:28.889Z",
+  "savedAt": "2026-06-21T22:32:49.226Z",
   "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
