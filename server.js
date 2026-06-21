@@ -9,6 +9,18 @@ const notifications = require("./server/notifications");
 const app = express();
 const port = process.env.PORT || 3000;
 const root = __dirname;
+const syncListeners = new Set();
+
+function broadcastSyncUpdate(savedAt, updatedBy) {
+  const payload = `data: ${JSON.stringify({ type: "update", savedAt, updatedBy })}\n\n`;
+  for (const client of syncListeners) {
+    try {
+      client.res.write(payload);
+    } catch (_) {
+      syncListeners.delete(client);
+    }
+  }
+}
 
 app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
@@ -71,6 +83,20 @@ app.get("/api/auth/me", (req, res) => {
   res.json({ user: session.user });
 });
 
+app.get("/api/sync/events", (req, res) => {
+  if (!store.isConfigured()) {
+    return res.status(503).json({ error: "Team sync not configured on server" });
+  }
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+  const client = { res };
+  syncListeners.add(client);
+  req.on("close", () => syncListeners.delete(client));
+  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+});
+
 app.get("/api/sync", async (req, res) => {
   try {
     if (!store.isConfigured()) {
@@ -100,8 +126,9 @@ app.put("/api/sync", async (req, res) => {
     const prev = await store.fetchRecord();
     await notifications.diffAndNotify(prev, payload, payload.updatedBy);
     await store.pushRecord(payload);
+    broadcastSyncUpdate(payload.savedAt, payload.updatedBy);
 
-    res.json({ ok: true, ...store.info() });
+    res.json({ ok: true, savedAt: payload.savedAt, updatedBy: payload.updatedBy, ...store.info() });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

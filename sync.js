@@ -1,12 +1,16 @@
 (function () {
   const SYNC_SETTINGS_KEY = "leaflock-team-sync-v1";
   const USER_KEY = "leaflock-user-name";
+  const POLL_MS = 2000;
 
   let pollTimer = null;
   let pushing = false;
   let lastRemoteAt = 0;
   let serverSync = false;
   let serverConfig = null;
+  let onRemoteHandler = null;
+  let eventSource = null;
+  let pullInFlight = null;
 
   function loadSettings() {
     try {
@@ -36,6 +40,12 @@
     if (serverSync) return true;
     const s = loadSettings();
     return Boolean(s.enabled && s.binId && s.masterKey);
+  }
+
+  function markRemoteTs(savedAt) {
+    if (!savedAt) return;
+    const ts = new Date(savedAt).getTime();
+    if (Number.isFinite(ts)) lastRemoteAt = ts;
   }
 
   async function detectServer() {
@@ -86,18 +96,19 @@
         });
         if (res.status === 401) {
           location.href = "/login.html";
-          return;
+          return null;
         }
         if (!res.ok) throw new Error(`Sync write failed (${res.status})`);
-        lastRemoteAt = Date.now();
-        return true;
+        const data = await res.json().catch(() => ({}));
+        markRemoteTs(data.savedAt || payload.savedAt);
+        return data;
       } finally {
         pushing = false;
       }
     }
 
     const s = loadSettings();
-    if (!s.binId || !s.masterKey) return;
+    if (!s.binId || !s.masterKey) return null;
     pushing = true;
     try {
       const res = await fetch(`https://api.jsonbin.io/v3/b/${s.binId}`, {
@@ -109,11 +120,32 @@
         body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error(`Sync write failed (${res.status})`);
-      lastRemoteAt = Date.now();
-      return true;
+      markRemoteTs(payload.savedAt || new Date().toISOString());
+      return { ok: true };
     } finally {
       pushing = false;
     }
+  }
+
+  async function pullNow(force = false) {
+    if (!isEnabled() || !onRemoteHandler) return;
+    if (pullInFlight) return pullInFlight;
+    pullInFlight = (async () => {
+      if (pushing && !force) return;
+      try {
+        const remote = await fetchRemote();
+        if (!remote?.savedAt) return;
+        const remoteTs = new Date(remote.savedAt).getTime();
+        if (force || remoteTs > lastRemoteAt) {
+          markRemoteTs(remote.savedAt);
+          onRemoteHandler(remote, true, true);
+        }
+      } catch (_) {
+      } finally {
+        pullInFlight = null;
+      }
+    })();
+    return pullInFlight;
   }
 
   function stopPolling() {
@@ -121,21 +153,43 @@
     pollTimer = null;
   }
 
+  function disconnectLive() {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+  }
+
+  function connectLive() {
+    disconnectLive();
+    if (!serverSync) return;
+    try {
+      eventSource = new EventSource("/api/sync/events");
+      eventSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === "update") {
+            if (data.savedAt) markRemoteTs(data.savedAt);
+            pullNow(true);
+          }
+        } catch (_) {}
+      };
+      eventSource.onerror = () => {
+        disconnectLive();
+        setTimeout(connectLive, 4000);
+      };
+    } catch (_) {}
+  }
+
   function startPolling(onRemote) {
     stopPolling();
+    onRemoteHandler = onRemote;
     if (!isEnabled()) return;
-    pollTimer = setInterval(async () => {
-      if (pushing) return;
-      try {
-        const remote = await fetchRemote();
-        if (!remote?.savedAt) return;
-        const remoteTs = new Date(remote.savedAt).getTime();
-        if (remoteTs > lastRemoteAt) {
-          lastRemoteAt = remoteTs;
-          onRemote(remote, true);
-        }
-      } catch (_) {}
-    }, 5000);
+    connectLive();
+    pollTimer = setInterval(() => pullNow(false), POLL_MS);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") pullNow(true);
+    });
   }
 
   window.CRM_SYNC = {
@@ -149,10 +203,12 @@
     getServerConfig: () => serverConfig,
     fetchRemote,
     pushRemote,
+    pullNow,
     startPolling,
     stopPolling,
-    markPushed() {
-      lastRemoteAt = Date.now();
+    connectLive,
+    markPushed(savedAt) {
+      markRemoteTs(savedAt || new Date().toISOString());
     }
   };
 })();

@@ -18,6 +18,7 @@
  let filters = { state: "", type: "", relevance: "", stage: "", status: "", assignee: "", search: "" };
  let dragId = null;
  const taskAlertSeen = new Set();
+ const liveTaskPulse = new Set();
  const sync = window.CRM_SYNC;
 
  const $ = (sel, root = document) => root.querySelector(sel);
@@ -65,6 +66,30 @@
  function myOpenTasks() {
  const me = staffName();
  return tasks.filter((t) => t.status !== "done" && samePerson(t.assignee, me));
+ }
+
+ function openTasksForDeal(pharmacyId) {
+ if (!pharmacyId) return [];
+ const me = staffName();
+ return tasks.filter((t) => {
+ if (t.status === "done" || t.pharmacyId !== pharmacyId) return false;
+ if (isManager()) return true;
+ return samePerson(t.assignee, me) || samePerson(t.createdBy, me);
+ });
+ }
+
+ function pulseLiveTasks(taskIds) {
+ taskIds.forEach((id) => liveTaskPulse.add(id));
+ setTimeout(() => taskIds.forEach((id) => liveTaskPulse.delete(id)), 10000);
+ }
+
+ function dealTaskStrip(p) {
+ const open = openTasksForDeal(p.id);
+ if (!open.length) return "";
+ return `<div class="deal-task-strip">${open.slice(0, 2).map((t) => `
+ <span class="deal-task-chip ${liveTaskPulse.has(t.id) ? "task-live-pulse" : ""}" title="${escapeHtml(t.title)}">
+ <span class="deal-task-icon">☑</span>${escapeHtml(t.assignee)}: ${escapeHtml(t.title.length > 28 ? `${t.title.slice(0, 28)}…` : t.title)}
+ </span>`).join("")}${open.length > 2 ? `<span class="deal-task-more">+${open.length - 2} more</span>` : ""}</div>`;
  }
 
  function showTaskAlert(task, actor = "Your manager") {
@@ -156,6 +181,7 @@
  taskAlertSeen.add(t.id);
  showTaskAlert(t, actor);
  });
+ pulseLiveTasks(incoming.map((t) => t.id));
  }
  }
  if (remote.teamConfig) teamConfig = { ...teamConfig, ...remote.teamConfig };
@@ -165,8 +191,13 @@
  updateStaffUi();
  updateTaskBadge(newForMe > 0);
  renderActiveView();
- updateSyncStatus(remote.updatedBy ? `Team live | ${remote.updatedBy}` : "Team live");
- if (!silent) toast("Team data updated");
+ const liveLabel = remote.updatedBy ? `Live · ${remote.updatedBy}` : "Live sync";
+ updateSyncStatus(liveLabel);
+ const statusEl = $("#sync-status");
+ statusEl?.classList.add("sync-pulse");
+ clearTimeout(applyRemoteState._pulse);
+ applyRemoteState._pulse = setTimeout(() => statusEl?.classList.remove("sync-pulse"), 1200);
+ if (!silent && newForMe > 0) toast("New task on your pipeline");
  }
 
  function save(pushRemote = true) {
@@ -175,8 +206,8 @@
  updateSidebarStats();
  if (pushRemote && sync?.isEnabled?.()) {
  sync.pushRemote(payload)
- .then(() => {
- sync.markPushed();
+ .then((data) => {
+ sync.markPushed(data?.savedAt || payload.savedAt);
  updateSyncStatus(`Team live | ${payload.updatedBy}`);
  })
  .catch(() => {
@@ -211,7 +242,7 @@
  if (!el) return;
  el.textContent = text;
  el.classList.toggle("sync-error", isError);
- el.classList.toggle("sync-live", text.includes("Synced") || text.includes("Team live"));
+ el.classList.toggle("sync-live", text.includes("Synced") || text.includes("Team live") || text.includes("Live"));
  }
 
  function refreshAssigneeFilters() {
@@ -251,10 +282,11 @@
  };
  tasks.unshift(task);
  taskAlertSeen.add(task.id);
+ if (task.pharmacyId) pulseLiveTasks([task.id]);
  save();
  updateTaskBadge();
  renderActiveView();
- toast(resolvedAssignee === staffName() ? "Task added" : `Task sent to ${resolvedAssignee}`);
+ toast(resolvedAssignee === staffName() ? "Task added" : `Task live for ${resolvedAssignee} — shows on pipeline`);
  }
 
  function completeTask(id) {
@@ -686,6 +718,7 @@
  <div class="deal-meta" style="margin-top:6px;">
  <span class="pill ${priorityClass(p.priority)}">${escapeHtml(p.priority || "Medium")}</span>
  </div>
+ ${dealTaskStrip(p)}
  <div class="deal-foot">
  ${assignUi}
  ${valueUi}
@@ -721,6 +754,7 @@
  <div class="pipeline-stat"><span>Total value</span><strong class="pd-green">${formatMoney(rev.openPotential)}</strong></div>
  <div class="pipeline-stat"><span>Weighted forecast</span><strong>${formatMoney(weighted)}</strong></div>
  ${staffViewActive() ? `<div class="pipeline-stat"><span>Your cut</span><strong class="pd-green">${formatMoney(staffCut(rev.openPotential))}</strong></div>` : ""}
+ <div class="pipeline-stat"><span>Open activities</span><strong>${(isManager() ? tasks.filter((t) => t.status !== "done") : myOpenTasks()).length}</strong></div>
  </div>
  <div class="pipeline-view-toggle" role="group" aria-label="Pipeline view">
  <button type="button" class="${pipelineMode === "board" ? "active" : ""}" data-pmode="board">Board</button>
@@ -740,7 +774,7 @@
  .sort((a, b) => saleValue(b) - saleValue(a));
  el.innerHTML = rows.length ? `
  <table>
- <thead><tr><th>Deal</th><th>Organization</th><th>Stage</th><th>Owner</th><th>Value</th><th>Days</th></tr></thead>
+ <thead><tr><th>Deal</th><th>Organization</th><th>Stage</th><th>Owner</th><th>Tasks</th><th>Value</th><th>Days</th></tr></thead>
  <tbody>${rows.map((p) => {
  const st = stageMeta(normalizeStage(p.stage));
  const val = saleValue(p);
@@ -749,6 +783,7 @@
  <td>${escapeHtml(p.accountType || p.type || "—")} ${p.state ? `· ${escapeHtml(p.state)}` : ""}</td>
  <td><span class="list-stage-pill"><span class="stage-dot" style="background:${st.color}"></span>${escapeHtml(st.name)}</span></td>
  <td>${escapeHtml(p.assignee || "—")}</td>
+ <td>${openTasksForDeal(p.id).length ? openTasksForDeal(p.id).map((t) => `<span class="deal-task-chip">${escapeHtml(t.assignee)}</span>`).join(" ") : "—"}</td>
  <td class="list-value">${val ? formatMoney(val) : "—"}</td>
  <td>${daysInStage(p)}d</td>
  </tr>`;

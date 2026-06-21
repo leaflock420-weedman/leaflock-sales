@@ -450,6 +450,44 @@ a { color: inherit; text-decoration: none; }
 .deal-quick-btn.won { color: var(--pd-accent); border-color: #a7f3d0; }
 .deal-quick-btn.lost { color: #b42318; border-color: #fecaca; }
 
+.deal-task-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+.deal-task-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #1e5f9e;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 5px 7px;
+}
+.deal-task-chip.task-live-pulse {
+  animation: task-live-flash 1.2s ease 3;
+  border-color: #22a06b;
+  background: #ecfdf5;
+  color: #166534;
+}
+@keyframes task-live-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 160, 107, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(34, 160, 107, 0.35); }
+}
+.deal-task-icon { flex-shrink: 0; }
+.deal-task-more { font-size: 10px; font-weight: 700; color: var(--muted); padding-left: 4px; }
+
+.sync-status.sync-pulse { animation: sync-pulse 0.8s ease; background: #d1fae5; border-color: #6ee7b7; color: #166534; }
+@keyframes sync-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
 .pipeline-list {
   background: var(--white);
   border: 1px solid var(--line);
