@@ -27779,7 +27779,19 @@
       "value": 1595
     }
   ],
-  "tasks": [],
+  "tasks": [
+    {
+      "id": "task-1",
+      "pharmacyId": "pharm-2",
+      "pharmacyName": "Pharmacy (03) 9802 6618",
+      "title": "email",
+      "assignee": "Sarah",
+      "dueDate": "2026-06-21",
+      "status": "open",
+      "createdBy": "lewis",
+      "createdAt": "2026-06-21"
+    }
+  ],
   "teamConfig": {
     "members": [
       "Lewis",
@@ -27801,7 +27813,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-21T22:17:05.408Z",
+  "savedAt": "2026-06-21T22:17:20.808Z",
   "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
