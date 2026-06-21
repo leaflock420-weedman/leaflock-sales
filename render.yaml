@@ -1,0 +1,13 @@
+# LeafLock Sales CRM — https://sales.leaflock.com.au
+services:
+  - type: web
+    name: leaflock-sales
+    runtime: node
+    plan: free
+    repo: https://github.com/leaflock420-weedman/leaflock-sales
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    domains:
+      - sales.leaflock.com.au

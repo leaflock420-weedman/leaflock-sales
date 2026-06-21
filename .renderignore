@@ -1,0 +1,10 @@
+desktop-app/
+source/
+data/
+*.ps1
+*.bat
+build-single-file.ps1
+import-data.ps1
+start-crm.ps1
+BUILD-DESKTOP-EXE.bat
+LeafLock Sales Desktop.bat

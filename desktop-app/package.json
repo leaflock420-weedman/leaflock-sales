@@ -1,0 +1,49 @@
+{
+  "name": "leaflock-sales-desktop",
+  "productName": "LeafLock Sales",
+  "version": "1.0.0",
+  "description": "LeafLock pharmacy wholesale CRM desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.leaflock.sales",
+    "directories": {
+      "output": "dist"
+    },
+    "extraMetadata": {
+      "main": "main.js"
+    },
+    "asar": true,
+    "files": [
+      "main.js",
+      {
+        "from": "..",
+        "to": ".",
+        "filter": [
+          "index.html",
+          "styles.css",
+          "app.js",
+          "config.js",
+          "seed.js",
+          "manifest.json",
+          "sw.js",
+          "icons/**"
+        ]
+      }
+    ],
+    "win": {
+      "target": ["portable"],
+      "icon": "../icons/icon-512.png"
+    },
+    "portable": {
+      "artifactName": "LeafLock-Sales-Portable.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}
