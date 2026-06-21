@@ -44,6 +44,9 @@
       if (!res.ok) return null;
       serverConfig = await res.json();
       serverSync = Boolean(serverConfig.serverSync);
+      if (serverSync) {
+        saveSettings({ enabled: true, serverManaged: true });
+      }
       return serverConfig;
     } catch (_) {
       return null;

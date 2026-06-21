@@ -611,8 +611,9 @@
  const syncBlock = serverMode
  ? `<article class="settings-card settings-wide">
  <h3>Team sync</h3>
- <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">Cloud sync is managed on the server. Everyone signed in shares the same live pipeline.</p>
+ <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">Cloud sync is managed on the server (${serverCfg.syncBackend?.backend || "github"}). Everyone signed in shares the same live pipeline.</p>
  <p style="margin:12px 0 0;font-size:13px;">Email alerts: <strong>${serverCfg.emailEnabled ? "On" : "Off"}</strong> (from info@leaflock.com.au)</p>
+ <p style="margin:8px 0 0;font-size:12px;color:var(--muted);">JSONBin not needed — team data syncs via GitHub automatically.</p>
  <button class="btn btn-ghost btn-small" id="btn-logout" type="button" style="margin-top:14px;">Sign out</button>
  </article>`
  : `<article class="settings-card settings-wide">

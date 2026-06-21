@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const cookieParser = require("cookie-parser");
-const jsonbin = require("./server/jsonbin");
+const store = require("./server/store");
 const auth = require("./server/auth");
 const email = require("./server/email");
 const notifications = require("./server/notifications");
@@ -25,6 +25,7 @@ const PUBLIC = new Set([
 
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/auth/")) return next();
+  if (req.path === "/api/config") return next();
   if (PUBLIC.has(req.path)) return next();
   if (req.path.startsWith("/api/")) return auth.requireAuth(req, res, next);
   if (/\.(js|css|png|json|webp|ico|svg|woff2?)$/i.test(req.path)) {
@@ -39,10 +40,13 @@ app.use((req, res, next) => {
 app.use(express.static(root, { index: false, extensions: ["html"] }));
 
 app.get("/api/config", (req, res) => {
+  const session = auth.readSession(req);
   res.json({
-    serverSync: jsonbin.isConfigured(),
+    serverSync: store.isConfigured(),
+    syncBackend: store.info(),
     emailEnabled: email.isConfigured(),
-    appUrl: email.APP_URL
+    appUrl: email.APP_URL,
+    authenticated: Boolean(session)
   });
 });
 
@@ -69,10 +73,10 @@ app.get("/api/auth/me", (req, res) => {
 
 app.get("/api/sync", async (req, res) => {
   try {
-    if (!jsonbin.isConfigured()) {
+    if (!store.isConfigured()) {
       return res.status(503).json({ error: "Team sync not configured on server" });
     }
-    const record = await jsonbin.fetchRecord();
+    const record = await store.fetchRecord();
     res.json(record || { pharmacies: [], tasks: [], teamConfig: {} });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -81,7 +85,7 @@ app.get("/api/sync", async (req, res) => {
 
 app.put("/api/sync", async (req, res) => {
   try {
-    if (!jsonbin.isConfigured()) {
+    if (!store.isConfigured()) {
       return res.status(503).json({ error: "Team sync not configured on server" });
     }
     const payload = req.body;
@@ -93,30 +97,11 @@ app.put("/api/sync", async (req, res) => {
     payload.updatedBy = req.crmUser || payload.updatedBy || "Team member";
     notifications.ensureMeta(payload);
 
-    const prev = await jsonbin.fetchRecord();
+    const prev = await store.fetchRecord();
     await notifications.diffAndNotify(prev, payload, payload.updatedBy);
-    await jsonbin.pushRecord(payload);
+    await store.pushRecord(payload);
 
-    res.json({ ok: true, binId: jsonbin.binId() });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.post("/api/setup/jsonbin", auth.requireAuth, async (req, res) => {
-  try {
-    const { masterKey } = req.body || {};
-    if (masterKey) process.env.JSONBIN_MASTER_KEY = masterKey.trim();
-    if (!jsonbin.masterKey()) {
-      return res.status(400).json({ error: "JSONBIN_MASTER_KEY required" });
-    }
-    const id = await jsonbin.ensureBin({
-      pharmacies: [],
-      tasks: [],
-      teamConfig: { members: ["Lewis", "Sarah", "James"], memberEmails: {} },
-      meta: { emailLog: {} }
-    });
-    res.json({ ok: true, binId: id });
+    res.json({ ok: true, ...store.info() });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -131,29 +116,22 @@ app.get("*", auth.requireAuthPage, (_req, res) => {
 });
 
 async function bootstrap() {
-  if (jsonbin.isConfigured()) {
-    try {
-      await jsonbin.ensureBin({
-        pharmacies: [],
-        tasks: [],
-        teamConfig: { members: ["Lewis", "Sarah", "James"], memberEmails: {} },
-        meta: { emailLog: {} }
-      });
-      console.log(`JSONBin ready: ${jsonbin.binId()}`);
-    } catch (e) {
-      console.warn("JSONBin bootstrap:", e.message);
-    }
+  const info = store.info();
+  if (info.backend) {
+    console.log(`Team sync: ${info.backend}`, info);
+  } else {
+    console.warn("No sync backend — set GITHUB_TOKEN on Render (recommended) or JSONBIN_MASTER_KEY");
   }
 
   setInterval(async () => {
-    if (!jsonbin.isConfigured() || !email.isConfigured()) return;
+    if (!store.isConfigured() || !email.isConfigured()) return;
     try {
-      const record = await jsonbin.fetchRecord();
+      const record = await store.fetchRecord();
       if (!record) return;
       const touched = await notifications.runFollowUps(record);
       const sent = touched.filter((r) => r?.sent).length;
       if (sent > 0) {
-        await jsonbin.pushRecord(record);
+        await store.pushRecord(record);
         console.log(`Follow-up emails sent: ${sent}`);
       }
     } catch (e) {
@@ -163,7 +141,6 @@ async function bootstrap() {
 
   app.listen(port, "0.0.0.0", () => {
     console.log(`LeafLock Sales CRM on port ${port}`);
-    console.log(`Team password: set CRM_TEAM_PASSWORD env (default only for dev)`);
   });
 }
 

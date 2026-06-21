@@ -1,6 +1,13 @@
 node_modules/
 desktop-app/node_modules/
 .netlify/
+.edge-automation/
+.chrome-automation/
+godaddy-dns.png
+.jsonbin-id
+jsonbin-setup.txt
+.env
+.env.local
 *.log
 .DS_Store
 Thumbs.db
