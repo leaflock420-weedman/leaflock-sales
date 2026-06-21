@@ -96,7 +96,8 @@
       "subtotal": 1400,
       "shipping": 50,
       "tax": 145,
-      "value": 1595
+      "value": 1595,
+      "activities": []
     },
     {
       "id": "pharm-3",
@@ -27827,7 +27828,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-21T22:36:14.840Z",
+  "savedAt": "2026-06-21T22:37:33.528Z",
   "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
