@@ -482,6 +482,20 @@ a { color: inherit; text-decoration: none; }
 .deal-task-icon { flex-shrink: 0; }
 .deal-task-more { font-size: 10px; font-weight: 700; color: var(--muted); padding-left: 4px; }
 
+.pill-task-deal { background: #eff6ff; color: #1d4ed8; }
+.pill-mine-deal { background: #ecfdf5; color: #166534; }
+.staff-browse-banner {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #eff6ff, #f0fdf6);
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
 .sync-status.sync-pulse { animation: sync-pulse 0.8s ease; background: #d1fae5; border-color: #6ee7b7; color: #166534; }
 @keyframes sync-pulse {
   0%, 100% { transform: scale(1); }

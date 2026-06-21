@@ -13,6 +13,7 @@
  };
  let taskFilter = "mine";
  let pipelineMode = "board";
+ let staffPipelineScope = "my-work";
  let dealDrawerTab = "activity";
  let activeView = "pipeline";
  let filters = { state: "", type: "", relevance: "", stage: "", status: "", assignee: "", search: "" };
@@ -142,18 +143,43 @@
  return Math.round((Number(amount) || 0) * commissionRate());
  }
 
- function applyMyDealsFilter() {
+ function isStaffMember() {
  const me = staffName();
- if (!me || isManager()) return;
- if (!teamConfig.members.some((m) => m.toLowerCase() === me.toLowerCase())) return;
- filters.assignee = me;
+ if (!me || isManager()) return false;
+ return teamConfig.members.some((m) => samePerson(m, me));
+ }
+
+ function applyMyDealsFilter() {
+ if (!isStaffMember()) return;
+ filters.assignee = "";
  const sel = $("#filter-assignee");
- if (sel) sel.value = me;
+ if (sel) sel.value = "";
  taskFilter = "mine";
+ staffPipelineScope = "my-work";
  }
 
  function staffViewActive() {
- return !isManager() && Boolean(filters.assignee) && filters.assignee === staffName();
+ return isStaffMember();
+ }
+
+ function hasMyOpenTask(pharmacyId) {
+ const me = staffName();
+ if (!pharmacyId || !me) return false;
+ return tasks.some((t) => t.pharmacyId === pharmacyId && t.status !== "done" && samePerson(t.assignee, me));
+ }
+
+ function isAssignedToMe(p) {
+ return samePerson(p.assignee, staffName());
+ }
+
+ function inStaffPipeline(p) {
+ if (!isStaffMember()) return true;
+ if (staffPipelineScope === "mine") return isAssignedToMe(p);
+ return isAssignedToMe(p) || hasMyOpenTask(p.id);
+ }
+
+ function staffPipelineDeals() {
+ return filteredPharmacies("pipeline");
  }
 
  function buildPayload() {
@@ -180,8 +206,8 @@
  incoming.forEach((t) => {
  taskAlertSeen.add(t.id);
  showTaskAlert(t, actor);
+ if (t.pharmacyId) pulseLiveTasks([t.id]);
  });
- pulseLiveTasks(incoming.map((t) => t.id));
  }
  }
  if (remote.teamConfig) teamConfig = { ...teamConfig, ...remote.teamConfig };
@@ -405,7 +431,9 @@
  return stageNames.includes(stage) ? stage : "Appointment";
  }
 
- function filteredPharmacies() {
+ function filteredPharmacies(viewContext) {
+ const view = viewContext || activeView;
+ const staffBrowseAll = isStaffMember() && (view === "stores" || view === "contacts");
  const q = filters.search.trim().toLowerCase();
  return pharmacies.filter((p) => {
  if (filters.state && p.state !== filters.state) return false;
@@ -413,10 +441,11 @@
  if (filters.relevance && p.relevance !== filters.relevance) return false;
  if (filters.stage && normalizeStage(p.stage) !== filters.stage) return false;
  if (filters.status && p.status !== filters.status) return false;
- if (filters.assignee) {
+ if (filters.assignee && !staffBrowseAll) {
  const a = p.assignee || "Unassigned";
- if (filters.assignee === "Unassigned" ? a !== "Unassigned" && a !== "" : a !== filters.assignee) return false;
+ if (filters.assignee === "Unassigned" ? a !== "Unassigned" && a !== "" : !samePerson(a, filters.assignee)) return false;
  }
+ if (isStaffMember() && view === "pipeline" && !inStaffPipeline(p)) return false;
  if (!q) return true;
  const hay = [p.name, p.address, p.phone, p.email, p.state, p.postcode, p.type, p.notes, p.contactName, p.city]
  .join(" ")
@@ -505,7 +534,7 @@
  }
 
  function updateSidebarStats() {
- const list = staffViewActive() ? filteredPharmacies() : pharmacies;
+ const list = isStaffMember() ? staffPipelineDeals() : pharmacies;
  const m = metrics(list);
  const rev = revenueStats(list);
  $("#stat-total").textContent = m.total;
@@ -531,7 +560,7 @@
  <div class="revenue-hero-top staff-earnings-top">
  <div>
  <h2>${escapeHtml(me)}'s pipeline</h2>
- <p class="tagline">These are <strong>your assigned deals</strong>. Every order you close pays you <strong>${rate}%</strong> of the deal value. Push deals forward — your cut grows with every win.</p>
+ <p class="tagline"><strong>Your deals + any deal Lewis tasks you on</strong> show here. Browse all stores under <strong>Organizations</strong> to be proactive. Every close pays <strong>${rate}%</strong>.</p>
  </div>
  <div class="revenue-big staff-cut-big">
  <span>Your cut on open deals (${rate}%)</span>
@@ -660,6 +689,19 @@
  return map[type] || "•";
  }
 
+ function claimDeal(id) {
+ const p = pharmacies.find((x) => x.id === id);
+ const me = staffName();
+ if (!p || !me) return;
+ p.assignee = resolveAssignee(me);
+ p.lastActivity = today();
+ logActivity(id, "note", `${me} claimed this deal to work proactively`);
+ save();
+ toast("Deal claimed — it's on your pipeline now");
+ openDrawer(id);
+ renderActiveView();
+ }
+
  function moveToStage(id, stage, silentToast = false) {
  const item = pharmacies.find((p) => p.id === id);
  if (!item) return;
@@ -717,6 +759,8 @@
  ${contact}
  <div class="deal-meta" style="margin-top:6px;">
  <span class="pill ${priorityClass(p.priority)}">${escapeHtml(p.priority || "Medium")}</span>
+ ${hasMyOpenTask(p.id) && !isAssignedToMe(p) ? `<span class="pill pill-task-deal">Task for you</span>` : ""}
+ ${isAssignedToMe(p) && isStaffMember() ? `<span class="pill pill-mine-deal">Your deal</span>` : ""}
  </div>
  ${dealTaskStrip(p)}
  <div class="deal-foot">
@@ -756,12 +800,20 @@
  ${staffViewActive() ? `<div class="pipeline-stat"><span>Your cut</span><strong class="pd-green">${formatMoney(staffCut(rev.openPotential))}</strong></div>` : ""}
  <div class="pipeline-stat"><span>Open activities</span><strong>${(isManager() ? tasks.filter((t) => t.status !== "done") : myOpenTasks()).length}</strong></div>
  </div>
+ ${isStaffMember() ? `<select id="staff-pipeline-scope" class="filter-chip" aria-label="Pipeline scope">
+ <option value="my-work" ${staffPipelineScope === "my-work" ? "selected" : ""}>My work (deals + tasks)</option>
+ <option value="mine" ${staffPipelineScope === "mine" ? "selected" : ""}>My deals only</option>
+ </select>` : ""}
  <div class="pipeline-view-toggle" role="group" aria-label="Pipeline view">
  <button type="button" class="${pipelineMode === "board" ? "active" : ""}" data-pmode="board">Board</button>
  <button type="button" class="${pipelineMode === "list" ? "active" : ""}" data-pmode="list">List</button>
  </div>`;
  $$("[data-pmode]", el).forEach((btn) => {
  btn.onclick = () => { pipelineMode = btn.dataset.pmode; renderPipeline(); };
+ });
+ $("#staff-pipeline-scope")?.addEventListener("change", (e) => {
+ staffPipelineScope = e.target.value;
+ renderPipeline();
  });
  }
 
@@ -795,7 +847,7 @@
  }
 
  function renderPipeline() {
- const list = filteredPharmacies().filter((p) => p.status !== "Lost" || filters.stage === "Lost");
+ const list = staffPipelineDeals().filter((p) => p.status !== "Lost" || filters.stage === "Lost");
  renderViewHero(list);
  renderMetrics(list);
  renderPipelineToolbar(list);
@@ -860,6 +912,7 @@
 
  function storeCard(p) {
  const stage = normalizeStage(p.stage);
+ const canAct = isManager() || isAssignedToMe(p) || hasMyOpenTask(p.id);
  const nextStages = cfg.pipelineStages
  .filter((s) => s.name !== stage && s.name !== "Lost")
  .slice(0, 3)
@@ -885,20 +938,28 @@
  ${saleValue(p) > 0 ? `<div>$ <span class="pill-revenue">${formatMoney(saleValue(p))}</span> ${escapeHtml(tierLabel(p))}${staffViewActive() ? ` · <span class="deal-cut-inline">Your cut ${formatMoney(staffCut(saleValue(p)))}</span>` : ""}</div>` : ""}
  </div>
  <div class="store-actions">
- ${nextStages.map((s) => `<button type="button" class="quick-stage" data-id="${p.id}" data-stage="${s}">-> ${s}</button>`).join("")}
+ ${canAct
+ ? nextStages.map((s) => `<button type="button" class="quick-stage" data-id="${p.id}" data-stage="${s}">-> ${s}</button>`).join("")
+ : `<span style="font-size:11px;color:var(--muted);font-weight:700;">Open store to claim or log a call</span>`}
+ ${hasMyOpenTask(p.id) && !isAssignedToMe(p) ? `<span class="pill pill-task-deal" style="margin-left:6px;">Task waiting</span>` : ""}
  </div>
  </article>
  `;
  }
 
  function renderStores() {
- const list = filteredPharmacies();
+ const list = filteredPharmacies("stores");
+ const browseBanner = isStaffMember()
+ ? `<div class="staff-browse-banner">
+ <strong>Browse all ${pharmacies.length} stores</strong> — search by name, suburb, or state. Open any store to log a call, add a note, or <strong>claim the deal</strong> yourself.
+ </div>`
+ : "";
  renderViewHero(list);
  renderMetrics(list);
  const grid = $("#stores-grid");
- grid.innerHTML = list.length
+ grid.innerHTML = browseBanner + (list.length
  ? list.map(storeCard).join("")
- : `<div class="empty-state full">No stores match your filters.</div>`;
+ : `<div class="empty-state full">No stores match your search. Try a suburb, chain name, or state.</div>`);
 
  $$(".store-card", grid).forEach((card) => {
  card.addEventListener("click", (e) => {
@@ -940,7 +1001,7 @@
  }
 
  function renderContacts() {
- const list = filteredPharmacies();
+ const list = filteredPharmacies("contacts");
  renderViewHero(list);
  renderMetrics(list);
  const grid = $("#contacts-grid");
@@ -976,8 +1037,8 @@
  <div>
  <h2 style="margin:0;font-size:18px;">${staffTasks ? "My tasks" : "Team tasks"}</h2>
  <p style="margin:4px 0 0;color:var(--muted);font-size:13px;">${staffTasks
- ? "Tasks Lewis assigns you pop up here automatically — usually within a few seconds."
- : "Assign follow-ups to staff. They get a popup on their screen when you assign them."}</p>
+ ? "Your tasks — linked deals also appear on your Deals pipeline."
+ : "Assign follow-ups to staff. The deal shows on their pipeline instantly."}</p>
  </div>
  <div class="tasks-actions">
  ${filterUi}
@@ -1034,7 +1095,7 @@
  function renderSettings() {
  if (staffViewActive()) {
  const rate = Math.round(commissionRate() * 100);
- const mine = filteredPharmacies();
+ const mine = staffPipelineDeals();
  const rev = revenueStats(mine);
  $("#settings-content").innerHTML = `
  <div class="settings-grid">
@@ -1218,6 +1279,7 @@
  : { pipeline: "Deals", stores: "Organizations", contacts: "People", tasks: "Activities", settings: "Settings" };
  $("#page-title").textContent = titles[activeView] || "CRM";
  $("#revenue-hero").style.display = (activeView === "settings" || activeView === "tasks") ? "none" : "block";
+ updateStaffUi();
  if (activeView === "pipeline") renderPipeline();
  if (activeView === "stores") renderStores();
  if (activeView === "contacts") renderContacts();
@@ -1278,9 +1340,11 @@
  ).join("")}</div>
  </div>
  <div class="deal-banner-actions">
- ${p.status === "Open" ? `<button type="button" class="btn btn-small btn-won" id="deal-mark-won">Won</button><button type="button" class="btn btn-small btn-lost" id="deal-mark-lost">Lost</button>` : ""}
+ ${isStaffMember() && !isAssignedToMe(p) ? `<button type="button" class="btn btn-secondary btn-small" id="deal-claim">Claim deal</button>` : ""}
+ ${isManager() && p.status === "Open" ? `<button type="button" class="btn btn-small btn-won" id="deal-mark-won">Won</button><button type="button" class="btn btn-small btn-lost" id="deal-mark-lost">Lost</button>` : ""}
  </div>`;
  $$("[data-stage-pick]", banner).forEach((btn) => btn.onclick = () => { moveToStage(id, btn.dataset.stagePick); openDrawer(id); });
+ $("#deal-claim")?.addEventListener("click", () => claimDeal(id));
  $("#deal-mark-won")?.addEventListener("click", () => moveToStage(id, "Won"));
  $("#deal-mark-lost")?.addEventListener("click", () => moveToStage(id, "Lost"));
 
@@ -1739,20 +1803,21 @@
  }
 
  function updateStaffUi() {
- const active = staffViewActive();
+ const active = isStaffMember();
  document.body.classList.toggle("staff-mode", active);
  updateTaskBadge();
  const assigneeFilter = $("#filter-assignee");
+ const hideAssigneeOnPipeline = active && activeView === "pipeline";
  if (assigneeFilter) {
- assigneeFilter.closest(".filter-chip")?.classList.toggle("hidden-staff-filter", active);
- assigneeFilter.disabled = active;
+ assigneeFilter.closest(".filter-chip")?.classList.toggle("hidden-staff-filter", hideAssigneeOnPipeline);
+ assigneeFilter.disabled = hideAssigneeOnPipeline;
  }
  $("#btn-add")?.classList.toggle("hidden-staff-only", active);
  const pipelineLabel = $("#stat-pipeline-label");
  if (pipelineLabel) pipelineLabel.textContent = active ? "Your cut" : "Pipeline";
  const eyebrow = $(".site-header .eyebrow");
  if (eyebrow) {
- eyebrow.dataset.staffSuffix = active ? ` · Your deals + ${Math.round(commissionRate() * 100)}% cut` : "";
+ eyebrow.dataset.staffSuffix = active ? ` · My work + ${Math.round(commissionRate() * 100)}% cut` : "";
  }
  }
 
