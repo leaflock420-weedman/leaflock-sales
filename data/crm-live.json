@@ -27852,15 +27852,16 @@
     ],
     "managers": [
       "Lewis",
-      "Brittany"
+      "Brittany",
+      "Sarah"
     ],
     "commissionRate": 0.2,
     "memberEmails": {
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-22T12:00:00.000Z",
-  "updatedBy": "Lewis",
+  "savedAt": "2026-06-23T05:50:53.926Z",
+  "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
   }
