@@ -27996,10 +27996,11 @@
     "commissionRate": 0.2,
     "memberEmails": {
       "Lewis": "info@leaflock.com.au"
-    }
+    },
+    "lastReminderScan": "2026-06-23"
   },
-  "savedAt": "2026-06-23T06:02:50.534Z",
-  "updatedBy": "lewis",
+  "savedAt": "2026-06-23T10:40:57.352Z",
+  "updatedBy": "Sarah",
   "meta": {
     "emailLog": {}
   }
