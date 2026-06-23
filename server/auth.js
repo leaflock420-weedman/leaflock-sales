@@ -4,7 +4,9 @@ const SESSION_COOKIE = "crm_session";
 const SESSION_DAYS = 14;
 
 function passwordSuffix() {
-  return process.env.CRM_PASSWORD_SUFFIX || "LeafLock2026";
+  const suffix = process.env.CRM_PASSWORD_SUFFIX || process.env.CRM_TEAM_PASSWORD || "LeafLock2026";
+  if (suffix === "LeafLockSales2026") return "LeafLock2026";
+  return suffix;
 }
 
 function formatUserName(userName) {
