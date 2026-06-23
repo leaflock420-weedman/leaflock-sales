@@ -127,11 +127,24 @@
  toast(`New task: ${task.title}`);
  }
 
+ function adminManagers() {
+ return cfg.defaultManagers || ["Lewis", "Brittany"];
+ }
+
+ function sanitizeTeamConfig() {
+ const allowed = adminManagers();
+ const current = teamConfig.managers?.length ? teamConfig.managers : allowed;
+ teamConfig.managers = current.filter((m) =>
+ allowed.some((a) => samePerson(a, m))
+ );
+ if (!teamConfig.managers.length) teamConfig.managers = [...allowed];
+ }
+
  function isManager() {
  const me = staffName();
- if (!me) return true;
- const managers = teamConfig.managers?.length ? teamConfig.managers : cfg.defaultManagers || [];
- return managers.some((m) => m.toLowerCase() === me.toLowerCase());
+ if (!me || me === "Team member") return false;
+ sanitizeTeamConfig();
+ return teamConfig.managers.some((m) => samePerson(m, me));
  }
 
  function commissionRate() {
@@ -235,6 +248,7 @@
  }
  }
  if (remote.teamConfig) teamConfig = { ...teamConfig, ...remote.teamConfig };
+ sanitizeTeamConfig();
  maybeEnsureReminders();
  localStorage.setItem(cfg.storageKey, JSON.stringify(buildPayload()));
  refreshAssigneeFilters();
@@ -279,6 +293,7 @@
  pharmacies = parsed.pharmacies;
  tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
  if (parsed.teamConfig) teamConfig = { ...teamConfig, ...parsed.teamConfig };
+ sanitizeTeamConfig();
  return;
  }
  } catch (_) {}
@@ -1431,7 +1446,7 @@
  const rate = Number($("#set-commission-rate").value);
  teamConfig.commissionRate = Number.isFinite(rate) && rate > 0 && rate < 1 ? rate : cfg.staffCommissionRate ?? 0.2;
  teamConfig.managers = $("#set-managers").value.split("\n").map((s) => s.trim()).filter(Boolean);
- if (!teamConfig.managers.length) teamConfig.managers = [...(cfg.defaultManagers || [])];
+ sanitizeTeamConfig();
  save();
  applyMyDealsFilter();
  renderActiveView();
@@ -1974,12 +1989,26 @@
  }
  }
 
+ async function syncAuthUser() {
+ try {
+ const res = await fetch("/api/auth/me", { credentials: "include" });
+ if (!res.ok) return;
+ const data = await res.json();
+ if (data?.user) {
+ sync?.setCurrentUser?.(data.user);
+ localStorage.setItem("leaflock-user-name", data.user);
+ }
+ } catch (_) {}
+ }
+
  async function init() {
  if (!window.SEED_PHARMACIES?.length) {
  document.body.innerHTML = `<div style="padding:40px;font-family:Segoe UI,sans-serif;"><h1>Missing data file</h1><p>Keep <strong>seed.js</strong> in the same folder as this HTML file.</p></div>`;
  return;
  }
  load();
+ await syncAuthUser();
+ sanitizeTeamConfig();
  markTasksSeen(tasks);
  maybeEnsureReminders();
  if (isManager()) taskFilter = "open";

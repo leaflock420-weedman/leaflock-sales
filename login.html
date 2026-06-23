@@ -6,28 +6,48 @@
   <meta name="robots" content="noindex">
   <title>LeafLock Sales — Team login</title>
   <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="login.css">
 </head>
 <body>
-  <main class="login-card">
-    <img src="icons/icon-192.png" width="56" height="56" alt="">
-    <h1>LeafLock Sales</h1>
-    <p class="sub">Team-only CRM. Everyone has their own password.</p>
-    <form id="login-form">
-      <label class="field">
-        <span>Your name</span>
-        <input id="user-name" name="userName" autocomplete="name" placeholder="e.g. Lewis" required>
-      </label>
-      <label class="field">
-        <span>Your password</span>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
-      </label>
-      <p id="password-hint" class="hint" style="margin:0 0 12px;"></p>
-      <p id="error" class="error" hidden></p>
-      <button type="submit" class="btn">Sign in</button>
-    </form>
-    <p class="hint">Format: <strong>YourNameLeafLock2026</strong> — e.g. <strong>SarahLeafLock2026</strong>. Ask Lewis if you're stuck.</p>
-  </main>
+  <div class="login-shell">
+    <section class="login-brand" aria-hidden="true">
+      <div class="brand-glow"></div>
+      <img src="icons/icon-192.png" width="72" height="72" alt="">
+      <p class="brand-eyebrow">LeafLock wholesale sales</p>
+      <h1>Close more pharmacy deals, faster.</h1>
+      <p class="brand-copy">Track 646+ Australian stores, pipeline stages, team tasks, and revenue forecasts — all in one place built for the LeafLock sales crew.</p>
+      <ul class="brand-stats">
+        <li><strong>646+</strong><span>pharmacies loaded</span></li>
+        <li><strong>Live</strong><span>team sync</span></li>
+        <li><strong>24/7</strong><span>pipeline access</span></li>
+      </ul>
+    </section>
+
+    <main class="login-card">
+      <div class="login-card-inner">
+        <img src="icons/icon-192.png" width="52" height="52" alt="">
+        <h2>Sign in to Sales</h2>
+        <p class="sub">Team-only CRM. Everyone has their own password.</p>
+        <form id="login-form">
+          <label class="field">
+            <span>Your name</span>
+            <input id="user-name" name="userName" autocomplete="name" placeholder="e.g. Lewis" required>
+          </label>
+          <label class="field">
+            <span>Your password</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <p id="password-hint" class="hint hint-inline"></p>
+          <p id="error" class="error" hidden></p>
+          <button type="submit" class="btn">Sign in</button>
+        </form>
+        <p class="hint">Format: <strong>YourNameLeafLock2026</strong> — e.g. <strong>SarahLeafLock2026</strong>. Ask Lewis if you're stuck.</p>
+      </div>
+    </main>
+  </div>
   <script>
     const form = document.getElementById("login-form");
     const error = document.getElementById("error");
@@ -78,7 +98,8 @@
           error.hidden = false;
           return;
         }
-        localStorage.setItem("leaflock-user-name", userName);
+        const data = await res.json().catch(() => ({}));
+        localStorage.setItem("leaflock-user-name", data.user || userName);
         location.href = "/";
       } catch {
         error.textContent = "Could not reach server";
