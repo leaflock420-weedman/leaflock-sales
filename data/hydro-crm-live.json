@@ -564,12 +564,13 @@
       "Emma"
     ],
     "commissionRate": 0.2,
+    "memberCommissions": {},
     "distributorManager": "Emma",
     "distributorCommissionRate": 0.2
   },
   "meta": {
     "emailLog": {}
   },
-  "savedAt": "2026-06-23T11:30:37.080Z",
+  "savedAt": "2026-06-23T11:41:34.148Z",
   "updatedBy": "Hydro CRM bootstrap"
 }
