@@ -1155,9 +1155,19 @@
  $("#settings-content").innerHTML = `
  <div class="settings-grid">
  ${syncBlock}
+ <article class="settings-card settings-wide">
+ <h3>Login passwords</h3>
+ <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">Each person uses <strong>Name + LeafLock2026</strong> (name must match roster).</p>
+ <ul style="margin:0;padding-left:18px;color:var(--muted);line-height:1.9;font-size:13px;">
+ ${teamConfig.members.map((m) => {
+ const n = m.trim().split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("");
+ return `<li><strong>${escapeHtml(m)}</strong> → <code>${escapeHtml(n)}LeafLock2026</code></li>`;
+ }).join("")}
+ </ul>
+ </article>
  <article class="settings-card">
  <h3>Team roster</h3>
- <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">One name per line — must match login names. Staff only see deals assigned to them + their ${Math.round(commissionRate() * 100)}% cut.</p>
+ <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">One name per line — must match login names exactly.</p>
  <textarea id="set-team-members" rows="5">${escapeHtml(teamConfig.members.join("\n"))}</textarea>
  <button class="btn btn-secondary btn-small" id="btn-save-team" type="button" style="margin-top:10px;">Save roster</button>
  <button class="btn btn-ghost btn-small" id="btn-auto-assign" type="button" style="margin-top:10px;">Auto-assign open deals</button>

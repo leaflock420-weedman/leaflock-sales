@@ -12,31 +12,58 @@
   <main class="login-card">
     <img src="icons/icon-192.png" width="56" height="56" alt="">
     <h1>LeafLock Sales</h1>
-    <p class="sub">Team-only CRM. Enter the shared team password.</p>
+    <p class="sub">Team-only CRM. Everyone has their own password.</p>
     <form id="login-form">
       <label class="field">
         <span>Your name</span>
         <input id="user-name" name="userName" autocomplete="name" placeholder="e.g. Lewis" required>
       </label>
       <label class="field">
-        <span>Team password</span>
+        <span>Your password</span>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
       </label>
+      <p id="password-hint" class="hint" style="margin:0 0 12px;"></p>
       <p id="error" class="error" hidden></p>
       <button type="submit" class="btn">Sign in</button>
     </form>
-    <p class="hint">Password is shared with your sales team. Ask Lewis if you don't have it.</p>
+    <p class="hint">Format: <strong>YourNameLeafLock2026</strong> — e.g. <strong>SarahLeafLock2026</strong>. Ask Lewis if you're stuck.</p>
   </main>
   <script>
     const form = document.getElementById("login-form");
     const error = document.getElementById("error");
+    const hint = document.getElementById("password-hint");
+    const nameInput = document.getElementById("user-name");
     const saved = localStorage.getItem("leaflock-user-name");
-    if (saved) document.getElementById("user-name").value = saved;
+    if (saved) nameInput.value = saved;
+
+    function formatName(n) {
+      return n.trim().split(/\s+/).filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join("");
+    }
+
+    function updateHint() {
+      const formatted = formatName(nameInput.value);
+      if (!formatted) {
+        hint.textContent = "";
+        return;
+      }
+      hint.innerHTML = `Your password is <strong>${formatted}LeafLock2026</strong>`;
+    }
+
+    nameInput.addEventListener("input", updateHint);
+    updateHint();
+
+    fetch("/api/config").then((r) => r.json()).then((cfg) => {
+      if (cfg.passwordHint?.suffix && cfg.passwordHint.suffix !== "LeafLock2026") {
+        hint.innerHTML = hint.innerHTML.replace(/LeafLock2026/g, cfg.passwordHint.suffix);
+      }
+    }).catch(() => {});
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       error.hidden = true;
-      const userName = document.getElementById("user-name").value.trim();
+      const userName = nameInput.value.trim();
       const password = document.getElementById("password").value;
       try {
         const res = await fetch("/api/auth/login", {

@@ -58,7 +58,8 @@ app.get("/api/config", (req, res) => {
     syncBackend: store.info(),
     emailEnabled: email.isConfigured(),
     appUrl: email.APP_URL,
-    authenticated: Boolean(session)
+    authenticated: Boolean(session),
+    passwordHint: auth.passwordHint()
   });
 });
 
@@ -66,7 +67,7 @@ app.post("/api/auth/login", (req, res) => {
   const { password, userName } = req.body || {};
   const session = auth.login(password, userName);
   if (!session) {
-    return res.status(401).json({ error: "Wrong team password" });
+    return res.status(401).json({ error: "Wrong name or password" });
   }
   auth.createSession(res, session.user);
   res.json({ ok: true, user: session.user });

@@ -20,7 +20,9 @@ services:
         value: LeafLock Sales <info@leaflock.com.au>
       - key: CRM_MANAGER_EMAIL
         value: info@leaflock.com.au
-      - key: CRM_TEAM_PASSWORD
+      - key: CRM_PASSWORD_SUFFIX
+        value: LeafLock2026
+      - key: CRM_USER_PASSWORDS
         sync: false
       - key: SESSION_SECRET
         sync: false

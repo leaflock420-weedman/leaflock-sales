@@ -3,12 +3,63 @@ const crypto = require("crypto");
 const SESSION_COOKIE = "crm_session";
 const SESSION_DAYS = 14;
 
-function teamPassword() {
-  return process.env.CRM_TEAM_PASSWORD || "LeafLockSales2026";
+function passwordSuffix() {
+  return process.env.CRM_PASSWORD_SUFFIX || "LeafLock2026";
+}
+
+function formatUserName(userName) {
+  return String(userName || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join("");
+}
+
+function defaultPasswordForUser(userName) {
+  const formatted = formatUserName(userName);
+  if (!formatted) return null;
+  return `${formatted}${passwordSuffix()}`;
+}
+
+function parseUserPasswordOverrides() {
+  const raw = process.env.CRM_USER_PASSWORDS || "";
+  const map = new Map();
+  raw.split(",").forEach((pair) => {
+    const idx = pair.indexOf(":");
+    if (idx < 1) return;
+    const key = pair.slice(0, idx).trim().toLowerCase();
+    const val = pair.slice(idx + 1).trim();
+    if (key && val) map.set(key, val);
+  });
+  return map;
+}
+
+function passwordOverrides() {
+  if (!parseUserPasswordOverrides._cache) {
+    parseUserPasswordOverrides._cache = parseUserPasswordOverrides();
+  }
+  return parseUserPasswordOverrides._cache;
+}
+
+function expectedPassword(userName) {
+  const user = String(userName || "").trim();
+  if (!user) return null;
+  const override = passwordOverrides().get(user.toLowerCase());
+  if (override) return override;
+  return defaultPasswordForUser(user);
+}
+
+function safeEqual(a, b) {
+  if (!a || !b) return false;
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
 }
 
 function sessionSecret() {
-  return process.env.SESSION_SECRET || process.env.CRM_TEAM_PASSWORD || "leaflock-crm-session-dev";
+  return process.env.SESSION_SECRET || process.env.CRM_PASSWORD_SUFFIX || "leaflock-crm-session-dev";
 }
 
 function signToken(payload) {
@@ -54,9 +105,19 @@ function readSession(req) {
 }
 
 function login(password, userName) {
-  const expected = teamPassword();
-  if (!password || password !== expected) return false;
-  return { user: (userName || "Team member").trim() || "Team member" };
+  const user = formatUserName(userName) || (userName || "").trim();
+  const expected = expectedPassword(user);
+  if (!user || !password || !expected) return false;
+  if (!safeEqual(password, expected)) return false;
+  return { user };
+}
+
+function passwordHint() {
+  return {
+    pattern: "YourName + LeafLock2026",
+    example: "SarahLeafLock2026",
+    suffix: passwordSuffix()
+  };
 }
 
 function requireAuth(req, res, next) {
@@ -79,7 +140,8 @@ module.exports = {
   clearSession,
   readSession,
   login,
+  passwordHint,
+  defaultPasswordForUser,
   requireAuth,
-  requireAuthPage,
-  teamPassword
+  requireAuthPage
 };
