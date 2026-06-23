@@ -167,10 +167,14 @@
  return isManager();
  }
 
- function isStaffMember() {
+ function staffViewActive() {
  const me = staffName();
- if (!me || isManager()) return false;
- return teamConfig.members.some((m) => samePerson(m, me));
+ if (!me || me === "Team member") return false;
+ return !isManager();
+ }
+
+ function isStaffMember() {
+ return staffViewActive();
  }
 
  function applyMyDealsFilter() {
@@ -180,10 +184,6 @@
  if (sel) sel.value = "";
  taskFilter = "mine";
  staffPipelineScope = "my-work";
- }
-
- function staffViewActive() {
- return isStaffMember();
  }
 
  function hasMyOpenTask(pharmacyId) {
@@ -770,20 +770,12 @@
  }
 
  function renderMetrics(list) {
- const m = metrics(list);
- const rev = revenueStats(list);
  if (staffViewActive()) {
- const c = staffCommissionStats(list);
- const rate = Math.round(c.rate * 100);
- const myReminders = tasks.filter((t) => t.reminderType && samePerson(t.assignee, staffName()) && t.status !== "done").length;
- $("#metrics").innerHTML = `
- <article class="metric-card staff-metric staff-metric-cut"><span>Your cut — open (${rate}%)</span><strong>${formatMoney(c.openCut)}</strong></article>
- <article class="metric-card staff-metric staff-metric-cut"><span>Your cut — won</span><strong>${formatMoney(c.wonCut)}</strong></article>
- <article class="metric-card staff-metric"><span>Total commission</span><strong>${formatMoney(c.totalCut)}</strong></article>
- <article class="metric-card staff-metric"><span>Reorder &amp; follow-ups</span><strong>${myReminders}</strong></article>
- `;
+ $("#metrics").innerHTML = "";
  return;
  }
+ const m = metrics(list);
+ const rev = revenueStats(list);
  $("#metrics").innerHTML = `
  <article class="metric-card"><span>Stores in view</span><strong>${m.total}</strong></article>
  <article class="metric-card"><span>Open potential</span><strong>${formatMoney(rev.openPotential)}</strong></article>
@@ -953,15 +945,11 @@
  function renderPipelineToolbar(list) {
  const rev = revenueStats(list);
  const weighted = weightedPipeline(list);
- const c = staffCommissionStats(list);
  const el = $("#pipeline-toolbar");
  if (!el) return;
  const statsHtml = staffViewActive()
  ? `
  <div class="pipeline-stat"><span>Your deals</span><strong>${rev.active}</strong></div>
- <div class="pipeline-stat"><span>Your cut — open</span><strong class="pd-green">${formatMoney(c.openCut)}</strong></div>
- <div class="pipeline-stat"><span>Your cut — won</span><strong>${formatMoney(c.wonCut)}</strong></div>
- <div class="pipeline-stat"><span>Total commission</span><strong class="pd-green">${formatMoney(c.totalCut)}</strong></div>
  <div class="pipeline-stat"><span>Your activities</span><strong>${myOpenTasks().length}</strong></div>`
  : `
  <div class="pipeline-stat"><span>Deals in view</span><strong>${rev.active}</strong></div>
@@ -1476,7 +1464,7 @@
  const metricsEl = $("#metrics");
  if (metricsEl) {
  metricsEl.style.display = staffViewActive()
- ? (activeView === "pipeline" ? "" : "none")
+ ? "none"
  : (activeView === "settings" || activeView === "tasks" ? "none" : "");
  }
  updateStaffUi();
@@ -1485,7 +1473,7 @@
  if (activeView === "contacts") renderContacts();
  if (activeView === "tasks") renderTasks();
  if (activeView === "settings") {
- renderRevenueHero(pharmacies);
+ if (!staffViewActive()) renderRevenueHero(pharmacies);
  renderSettings();
  }
  }
@@ -2023,6 +2011,10 @@
  $("#btn-add")?.classList.toggle("hidden-staff-only", active);
  const pipelineLabel = $("#stat-pipeline-label");
  if (pipelineLabel) pipelineLabel.textContent = active ? "Your cut" : "Pipeline";
+ const statTotal = $("#stat-total");
+ if (statTotal?.parentElement) {
+ statTotal.parentElement.innerHTML = `${active ? "Your deals" : "Total stores"}<strong id="stat-total">${statTotal.textContent}</strong>`;
+ }
  const eyebrow = $(".site-header .eyebrow");
  if (eyebrow) {
  eyebrow.dataset.staffSuffix = active ? ` · My work + ${Math.round(commissionRate() * 100)}% cut` : "";

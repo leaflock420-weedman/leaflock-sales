@@ -539,6 +539,8 @@ a { color: inherit; text-decoration: none; }
 .pill-reorder { background: #ecfdf5; color: #047857; }
 .pill-reorder-short { background: #fff7ed; color: #c2410c; }
 .pill-relationship { background: #f5f3ff; color: #6d28d9; }
+body.staff-mode #metrics { display: none !important; }
+body.staff-mode .pipeline-toolbar-stats .pipeline-stat .pd-green { color: var(--lime); }
 .staff-deal-cut { color: var(--lime); font-weight: 800; }
 .deal-banner-value small { font-size: 14px; font-weight: 600; opacity: 0.85; }
 .pill-mine-deal { background: #ecfdf5; color: #166534; }
