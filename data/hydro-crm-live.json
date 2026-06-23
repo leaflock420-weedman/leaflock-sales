@@ -64,7 +64,7 @@
       "status": "Open",
       "priority": "High",
       "source": "Outbound",
-      "assignee": "Jasmine",
+      "assignee": "Emma",
       "closeDate": "2026-07-15",
       "lossReason": "",
       "notes": "Sent display unit mockup. Follow up on private label quote.",
@@ -279,7 +279,7 @@
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
-      "assignee": "Jasmine",
+      "assignee": "Emma",
       "closeDate": "2026-08-01",
       "lossReason": "",
       "notes": "Waiting on freight quote for bulk cartons.",
@@ -521,27 +521,27 @@
   "teamConfig": {
     "members": [
       "Lewis",
-      "Jasmine",
+      "Emma",
       "Alex",
       "Sarah"
     ],
     "assignees": [
       "Unassigned",
       "Lewis",
-      "Jasmine",
+      "Emma",
       "Alex",
       "Sarah",
       "Hydro Team"
     ],
     "managers": [
       "Lewis",
-      "Jasmine"
+      "Emma"
     ],
     "commissionRate": 0.2
   },
   "meta": {
     "emailLog": {}
   },
-  "savedAt": "2026-06-23T11:19:12.942Z",
+  "savedAt": "2026-06-23T11:21:55.867Z",
   "updatedBy": "Hydro CRM bootstrap"
 }
