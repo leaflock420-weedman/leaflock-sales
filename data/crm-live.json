@@ -203,6 +203,24 @@
       "value": 1595,
       "activities": [
         {
+          "id": "act-14",
+          "type": "stage",
+          "note": "Moved from Pilot to Won",
+          "createdAt": "2026-06-23T06:02:44.304Z",
+          "createdBy": "lewis",
+          "fromStage": "Pilot",
+          "toStage": "Won"
+        },
+        {
+          "id": "act-13",
+          "type": "stage",
+          "note": "Moved from Won to Pilot",
+          "createdAt": "2026-06-23T06:02:42.927Z",
+          "createdBy": "lewis",
+          "fromStage": "Won",
+          "toStage": "Pilot"
+        },
+        {
           "id": "act-12",
           "type": "stage",
           "note": "Moved from Lost to Won",
@@ -27971,7 +27989,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-23T06:02:43.051Z",
+  "savedAt": "2026-06-23T06:02:45.651Z",
   "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
