@@ -27,7 +27,7 @@ async function createBin(masterKey) {
     pharmacies: [],
     tasks: [],
     teamConfig: {
-      members: ["Lewis", "Sarah", "James"],
+      members: ["Lewis", "Brittany", "Sarah", "Ken"],
       memberEmails: { Lewis: "info@leaflock.com.au" }
     },
     meta: { emailLog: {} }

@@ -36,8 +36,8 @@ window.CRM_CONFIG = {
  "Medicinal Cannabis Dispensary"
  ],
  australianStates: ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"],
- assignees: ["Unassigned", "Lewis", "Brittany", "Sarah", "James", "Sales Team"],
- defaultTeamMembers: ["Lewis", "Brittany", "Sarah", "James"],
+ assignees: ["Unassigned", "Lewis", "Brittany", "Sarah", "Ken", "Sales Team"],
+ defaultTeamMembers: ["Lewis", "Brittany", "Sarah", "Ken"],
  gstRate: 0.1,
  orderTiers: {
  500: {
