@@ -460,13 +460,7 @@
  }
 
  function quickAssignDeal(id, assignee) {
- const p = pharmacies.find((x) => x.id === id);
- if (!p) return;
- p.assignee = assignee;
- p.lastActivity = today();
- save();
- renderActiveView();
- toast(`Assigned to ${assignee}`);
+ managerAssignDeal(id, assignee, false);
  }
 
  function normalizeStage(stage) {
@@ -488,11 +482,9 @@
  if (filters.assignee === "Unassigned" ? a !== "Unassigned" && a !== "" : !samePerson(a, filters.assignee)) return false;
  }
  if (isStaffMember() && view === "pipeline" && !inStaffPipeline(p)) return false;
- if (!q) return true;
- const hay = [p.name, p.address, p.phone, p.email, p.state, p.postcode, p.type, p.notes, p.contactName, p.city]
- .join(" ")
- .toLowerCase();
- return hay.includes(q);
+ const skipSearchOnStaffPipeline = staffViewActive() && view === "pipeline";
+ if (!q || skipSearchOnStaffPipeline) return true;
+ return pharmacySearchHaystack(p).includes(q);
  });
  }
 
@@ -735,7 +727,7 @@
  <div class="revenue-hero-top staff-earnings-top">
  <div>
  <h2>${escapeHtml(me)}'s commission</h2>
- <p class="tagline">You only see <strong>your ${rate}% cut</strong> — never the full company pipeline. Browse stores under <strong>Organizations</strong> to claim new deals.</p>
+ <p class="tagline">Search any chemist in the header (e.g. <strong>Chempro</strong>) and tap <strong>Add to my pipeline</strong>. You only see <strong>your ${rate}% cut</strong> on your deals.</p>
  </div>
  <div class="revenue-big staff-cut-big">
  <span>Your total commission potential</span>
@@ -858,17 +850,180 @@
  return map[type] || "•";
  }
 
- function claimDeal(id) {
+ function pharmacySearchHaystack(p) {
+ return [p.name, p.address, p.phone, p.email, p.state, p.postcode, p.type, p.accountType, p.notes, p.contactName, p.city, p.assignee]
+ .join(" ")
+ .toLowerCase();
+ }
+
+ function staffReps() {
+ return teamConfig.members.filter((m) => !adminManagers().some((a) => samePerson(a, m)));
+ }
+
+ function globalSearchMatches(query, limit = 15) {
+ const q = query.trim().toLowerCase();
+ if (q.length < 2) return [];
+ return pharmacies.filter((p) => pharmacySearchHaystack(p).includes(q)).slice(0, limit);
+ }
+
+ function hideSearchResults() {
+ const box = $("#search-results");
+ const input = $("#search-input");
+ if (box) box.hidden = true;
+ if (input) input.setAttribute("aria-expanded", "false");
+ }
+
+ function addToMyPipeline(id, openAfter = true) {
  const p = pharmacies.find((x) => x.id === id);
  const me = staffName();
  if (!p || !me) return;
  p.assignee = resolveAssignee(me);
+ if (p.status === "Lost") {
+ p.status = "Open";
+ p.stage = "Appointment";
+ p.closeDate = "";
+ p.lossReason = "";
+ }
+ if (!p.stage || p.stage === "Lost") p.stage = "Appointment";
+ if (p.status !== "Open" && p.status !== "Won") p.status = "Open";
+ p.stageChangedAt = p.stageChangedAt || today();
  p.lastActivity = today();
- logActivity(id, "note", `${me} claimed this deal to work proactively`);
+ logActivity(id, "note", `${me} added this store to their pipeline`);
  save();
- toast("Deal claimed — it's on your pipeline now");
- openDrawer(id);
+ hideSearchResults();
+ $("#search-input").value = "";
+ filters.search = "";
+ activeView = "pipeline";
  renderActiveView();
+ toast(`${p.name} is on your pipeline now`);
+ if (openAfter) openDrawer(id);
+ }
+
+ function claimDeal(id) {
+ addToMyPipeline(id, true);
+ }
+
+ function managerAssignDeal(id, assignee, silent = false) {
+ const p = pharmacies.find((x) => x.id === id);
+ if (!p || !assignee || assignee === "Unassigned") return;
+ const who = staffName() || "Manager";
+ p.assignee = resolveAssignee(assignee);
+ p.lastActivity = today();
+ logActivity(id, "note", `${who} assigned this deal to ${p.assignee}`);
+ save();
+ renderSearchResults();
+ renderActiveView();
+ if (!silent) toast(`${p.name} → ${p.assignee}`);
+ }
+
+ function renderSearchResults() {
+ const box = $("#search-results");
+ const input = $("#search-input");
+ if (!box || !input) return;
+ const q = filters.search.trim();
+ if (q.length < 2) {
+ hideSearchResults();
+ return;
+ }
+ const matches = globalSearchMatches(q);
+ const staff = staffViewActive();
+ const rate = Math.round(commissionRate() * 100);
+ if (!matches.length) {
+ box.innerHTML = `<div class="search-results-empty">No chemists matching “${escapeHtml(q)}” — try suburb or chain name</div>`;
+ box.hidden = false;
+ input.setAttribute("aria-expanded", "true");
+ return;
+ }
+ const repOptions = staffReps().map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+ box.innerHTML = matches.map((p) => {
+ const val = saleValue(p);
+ const cut = staffCut(val);
+ const mine = isAssignedToMe(p);
+ const valueLabel = staff ? `Your ${rate}%: ${formatMoney(cut)}` : formatMoney(val);
+ let actions = "";
+ if (staff) {
+ actions = mine
+ ? `<span class="search-result-tag in-pipeline">On your pipeline</span>`
+ : `<button type="button" class="btn btn-primary btn-small" data-add-pipeline="${p.id}">Add to my pipeline</button>`;
+ } else if (isManager()) {
+ actions = `
+ <select class="search-assign-select" data-assign-id="${p.id}" aria-label="Assign ${escapeHtml(p.name)}">
+ <option value="">Assign to…</option>
+ ${repOptions}
+ </select>
+ <button type="button" class="btn btn-ghost btn-small" data-open-deal="${p.id}">Open</button>`;
+ }
+ return `<div class="search-result-row" role="option" data-id="${p.id}">
+ <div class="search-result-main">
+ <strong>${escapeHtml(p.name)}</strong>
+ <span>${escapeHtml([p.address, p.state, p.postcode].filter(Boolean).join(" · ") || "Australia")}</span>
+ <span class="search-result-meta">${escapeHtml(normalizeStage(p.stage))} · ${escapeHtml(p.assignee || "Unassigned")}</span>
+ </div>
+ <div class="search-result-side">
+ <span class="search-result-value">${valueLabel}</span>
+ ${actions}
+ </div>
+ </div>`;
+ }).join("");
+ box.hidden = false;
+ input.setAttribute("aria-expanded", "true");
+ $$("[data-add-pipeline]", box).forEach((btn) => {
+ btn.onclick = (e) => { e.stopPropagation(); addToMyPipeline(btn.dataset.addPipeline); };
+ });
+ $$("[data-open-deal]", box).forEach((btn) => {
+ btn.onclick = (e) => { e.stopPropagation(); hideSearchResults(); openDrawer(btn.dataset.openDeal); };
+ });
+ $$(".search-assign-select", box).forEach((sel) => {
+ sel.onchange = () => {
+ if (!sel.value) return;
+ managerAssignDeal(sel.dataset.assignId, sel.value);
+ sel.value = "";
+ };
+ if (sel.dataset.assignId) {
+ const p = pharmacies.find((x) => x.id === sel.dataset.assignId);
+ if (p?.assignee && p.assignee !== "Unassigned") {
+ const hit = [...sel.options].find((o) => samePerson(o.value, p.assignee));
+ if (hit) sel.value = hit.value;
+ }
+ }
+ });
+ }
+
+ function renderTeamWorkload() {
+ if (!isManager()) return "";
+ const reps = staffReps();
+ if (!reps.length) return "";
+ const chips = reps.map((name) => {
+ const deals = pharmacies.filter((p) => samePerson(p.assignee, name) && p.status !== "Lost");
+ const open = deals.filter((p) => p.status === "Open");
+ const rev = revenueStats(deals);
+ const openRev = revenueStats(open);
+ const cut = staffCut(openRev.openPotential + rev.wonRevenue);
+ const active = filters.assignee && samePerson(filters.assignee, name);
+ return `<button type="button" class="team-workload-chip ${active ? "active" : ""}" data-team-filter="${escapeHtml(name)}">
+ <strong>${escapeHtml(name)}</strong>
+ <span>${open.length} open · ${deals.length} total</span>
+ <span class="team-workload-money">${formatMoney(openRev.openPotential)} pipeline · ${formatMoney(cut)} comms</span>
+ </button>`;
+ }).join("");
+ return `<div class="team-workload-bar" aria-label="Team workload">
+ <span class="team-workload-label">Assign &amp; workload</span>
+ <div class="team-workload-chips">${chips}
+ <button type="button" class="team-workload-chip team-workload-clear ${!filters.assignee ? "active" : ""}" data-team-filter="">All team</button>
+ </div></div>`;
+ }
+
+ function bindTeamWorkload(root) {
+ if (!root) return;
+ $$("[data-team-filter]", root).forEach((btn) => {
+ btn.onclick = () => {
+ filters.assignee = btn.dataset.teamFilter || "";
+ const sel = $("#filter-assignee");
+ if (sel) sel.value = filters.assignee;
+ activeView = "pipeline";
+ renderActiveView();
+ };
+ });
  }
 
  function moveToStage(id, stage, silentToast = false) {
@@ -1024,7 +1179,13 @@
  }
 
  function renderPipeline() {
- const list = staffPipelineDeals().filter((p) => p.status !== "Lost" || filters.stage === "Lost");
+ const list = (isManager() ? filteredPharmacies("pipeline") : staffPipelineDeals())
+ .filter((p) => p.status !== "Lost" || filters.stage === "Lost");
+ const workloadHost = $("#team-workload");
+ if (workloadHost) {
+ workloadHost.innerHTML = renderTeamWorkload();
+ bindTeamWorkload(workloadHost);
+ }
  renderViewHero(list);
  renderMetrics(list);
  renderPipelineToolbar(list);
@@ -1116,9 +1277,12 @@
  ${saleValue(p) > 0 ? `<div>$ <span class="pill-revenue">${staffViewActive() ? formatMoney(staffCut(saleValue(p))) : formatMoney(saleValue(p))}</span> ${staffViewActive() ? `your ${Math.round(commissionRate() * 100)}%` : escapeHtml(tierLabel(p))}</div>` : ""}
  </div>
  <div class="store-actions">
+ ${staffViewActive() && !isAssignedToMe(p)
+ ? `<button type="button" class="btn btn-primary btn-small store-add-pipeline" data-id="${p.id}">Add to my pipeline</button>`
+ : ""}
  ${canAct
  ? nextStages.map((s) => `<button type="button" class="quick-stage" data-id="${p.id}" data-stage="${s}">-> ${s}</button>`).join("")
- : `<span style="font-size:11px;color:var(--muted);font-weight:700;">Open store to claim or log a call</span>`}
+ : (staffViewActive() ? "" : `<span style="font-size:11px;color:var(--muted);font-weight:700;">Open store to assign or log a call</span>`)}
  ${hasMyOpenTask(p.id) && !isAssignedToMe(p) ? `<span class="pill pill-task-deal" style="margin-left:6px;">Task waiting</span>` : ""}
  </div>
  </article>
@@ -1129,7 +1293,7 @@
  const list = filteredPharmacies("stores");
  const browseBanner = isStaffMember()
  ? `<div class="staff-browse-banner">
- <strong>Browse all ${pharmacies.length} stores</strong> — search by name, suburb, or state. Open any store to log a call, add a note, or <strong>claim the deal</strong> yourself. You only see <strong>your ${Math.round(commissionRate() * 100)}% cut</strong> on claimed deals.
+ <strong>Browse all ${pharmacies.length} stores</strong> — use the search bar (e.g. “Chempro”) to find any chemist, then <strong>Add to my pipeline</strong>. You only see <strong>your ${Math.round(commissionRate() * 100)}% cut</strong> on your deals.
  </div>`
  : "";
  if (!staffViewActive()) {
@@ -1151,6 +1315,12 @@
  btn.addEventListener("click", (e) => {
  e.stopPropagation();
  moveToStage(btn.dataset.id, btn.dataset.stage);
+ });
+ });
+ $$(".store-add-pipeline", grid).forEach((btn) => {
+ btn.addEventListener("click", (e) => {
+ e.stopPropagation();
+ addToMyPipeline(btn.dataset.id, true);
  });
  });
  }
@@ -1546,7 +1716,7 @@
  ).join("")}</div>
  </div>
  <div class="deal-banner-actions">
- ${isStaffMember() && !isAssignedToMe(p) ? `<button type="button" class="btn btn-secondary btn-small" id="deal-claim">Claim deal</button>` : ""}
+ ${isStaffMember() && !isAssignedToMe(p) ? `<button type="button" class="btn btn-primary btn-small" id="deal-claim">Add to my pipeline</button>` : ""}
  ${isManager() && p.status === "Open" ? `<button type="button" class="btn btn-small btn-won" id="deal-mark-won">Won</button><button type="button" class="btn btn-small btn-lost" id="deal-mark-lost">Lost</button>` : ""}
  </div>`;
  $$("[data-stage-pick]", banner).forEach((btn) => btn.onclick = () => { moveToStage(id, btn.dataset.stagePick); openDrawer(id); });
@@ -1926,7 +2096,17 @@
 
  $("#search-input").addEventListener("input", (e) => {
  filters.search = e.target.value;
+ renderSearchResults();
  renderActiveView();
+ });
+ $("#search-input").addEventListener("focus", () => {
+ if (filters.search.trim().length >= 2) renderSearchResults();
+ });
+ document.addEventListener("click", (e) => {
+ if (!e.target.closest("#search-box-wrap")) hideSearchResults();
+ });
+ $("#search-input").addEventListener("keydown", (e) => {
+ if (e.key === "Escape") hideSearchResults();
  });
 
  ["filter-state", "filter-type", "filter-relevance", "filter-stage", "filter-status", "filter-assignee"].forEach((id) => {
@@ -1940,6 +2120,7 @@
  $("#btn-clear-filters").addEventListener("click", () => {
  filters = { state: "", type: "", relevance: "", stage: "", status: "", assignee: "", search: "" };
  $("#search-input").value = "";
+ hideSearchResults();
  ["filter-state", "filter-type", "filter-relevance", "filter-stage", "filter-status", "filter-assignee"].forEach((id) => {
  $("#" + id).value = "";
  });
