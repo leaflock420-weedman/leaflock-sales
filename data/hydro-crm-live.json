@@ -65,9 +65,35 @@
       "priority": "High",
       "source": "Outbound",
       "assignee": "Emma",
+      "saleModel": "Consignment",
+      "paymentTermsDays": 30,
+      "consignmentStartDate": "2026-06-01",
       "closeDate": "2026-07-15",
       "lossReason": "",
       "notes": "Sent display unit mockup. Follow up on private label quote.",
+      "followUpOrders": [
+        {
+          "date": "2026-06-12",
+          "status": "placed",
+          "units": 20,
+          "notes": "First consignment restock"
+        }
+      ],
+      "promos": [
+        {
+          "date": "2026-06-05",
+          "party": "joint",
+          "title": "Humidity display bundle",
+          "notes": "Co-branded counter unit"
+        }
+      ],
+      "collaboration": [
+        {
+          "date": "2026-06-10",
+          "party": "stockist",
+          "note": "Riley set up endcap display"
+        }
+      ],
       "linkedin": "",
       "contactName": "Riley Patel",
       "contactTitle": "Purchasing",
@@ -537,11 +563,13 @@
       "Lewis",
       "Emma"
     ],
-    "commissionRate": 0.2
+    "commissionRate": 0.2,
+    "distributorManager": "Emma",
+    "distributorCommissionRate": 0.2
   },
   "meta": {
     "emailLog": {}
   },
-  "savedAt": "2026-06-23T11:21:55.867Z",
+  "savedAt": "2026-06-23T11:30:37.080Z",
   "updatedBy": "Hydro CRM bootstrap"
 }
