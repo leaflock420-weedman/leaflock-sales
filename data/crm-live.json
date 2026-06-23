@@ -176,12 +176,12 @@
       "relevance": "Medium",
       "whyRelevant": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
       "description": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
-      "stage": "Proposal",
-      "status": "Open",
+      "stage": "Won",
+      "status": "Won",
       "priority": "Medium",
       "source": "Outbound",
       "assignee": "Sarah",
-      "closeDate": "",
+      "closeDate": "2026-06-23",
       "lossReason": "",
       "notes": "",
       "linkedin": "",
@@ -202,6 +202,33 @@
       "tax": 145,
       "value": 1595,
       "activities": [
+        {
+          "id": "act-12",
+          "type": "stage",
+          "note": "Moved from Lost to Won",
+          "createdAt": "2026-06-23T06:02:40.776Z",
+          "createdBy": "lewis",
+          "fromStage": "Lost",
+          "toStage": "Won"
+        },
+        {
+          "id": "act-11",
+          "type": "stage",
+          "note": "Moved from Won to Lost",
+          "createdAt": "2026-06-23T06:02:38.668Z",
+          "createdBy": "lewis",
+          "fromStage": "Won",
+          "toStage": "Lost"
+        },
+        {
+          "id": "act-10",
+          "type": "stage",
+          "note": "Moved from Proposal to Won",
+          "createdAt": "2026-06-23T06:02:37.824Z",
+          "createdBy": "lewis",
+          "fromStage": "Proposal",
+          "toStage": "Won"
+        },
         {
           "id": "act-9",
           "type": "stage",
@@ -27944,7 +27971,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-23T06:02:39.960Z",
+  "savedAt": "2026-06-23T06:02:43.051Z",
   "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
