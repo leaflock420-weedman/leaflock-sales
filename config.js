@@ -75,5 +75,11 @@ window.CRM_CONFIG = {
  ],
  eliteTierPercent: 0.2,
  staffCommissionRate: 0.2,
- defaultManagers: ["Lewis", "Brittany"]
+ defaultManagers: ["Lewis", "Brittany"],
+ reorderProgram: {
+ reorderRate: 0.35,
+ targetUnits: 1500,
+ cycleWeeks: 6,
+ relationshipIntervalWeeks: 3
+ }
 };

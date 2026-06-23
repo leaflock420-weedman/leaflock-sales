@@ -175,7 +175,46 @@ async function runFollowUps(payload) {
     }
   }
 
+  const reorderCfg = { targetUnits: 1500, cycleWeeks: 6, relationshipWeeks: 3 };
   for (const deal of payload.pharmacies || []) {
+    if (deal.status === "Won" && deal.assignee && deal.assignee !== "Unassigned" && deal.reorderProgram !== false) {
+      const units = Number(deal.lastOrderUnits) || Number(deal.units) || 0;
+      const target = reorderCfg.targetUnits;
+      const to = memberEmail(teamConfig, deal.assignee);
+      if (to && units > 0 && units < target) {
+        const shortKey = `email-short-${deal.id}`;
+        if (!alreadySent(log, shortKey, today)) {
+          const subject = `Upsell follow-up: ${deal.name}`;
+          const text = [
+            `${deal.assignee} — this account ordered only ${units} units.`,
+            `Target reorder size is ${target} units every ${reorderCfg.cycleWeeks} weeks.`,
+            "",
+            `Store: ${deal.name}`,
+            "Follow up in the CRM Activities tab."
+          ].join("\n") + emailFooter();
+          const r = await sendEmail({ to, subject, text });
+          if (r.sent) markSent(log, shortKey, today);
+          results.push(r);
+        }
+      }
+      const nextReorder = deal.nextReorderDate;
+      if (to && nextReorder && nextReorder <= today) {
+        const reorderKey = `email-reorder-${deal.id}-${nextReorder}`;
+        if (!alreadySent(log, reorderKey, today)) {
+          const subject = `Reorder due: ${deal.name}`;
+          const text = [
+            `Time to check in on ${deal.name} — expect ~${target} unit reorder.`,
+            `Next reorder was due ${nextReorder}.`,
+            "",
+            "Log the call in CRM and mark the activity done."
+          ].join("\n") + emailFooter();
+          const r = await sendEmail({ to, subject, text });
+          if (r.sent) markSent(log, reorderKey, today);
+          results.push(r);
+        }
+      }
+    }
+
     if (deal.status !== "Open") continue;
     const staleKey = `stale-${deal.id}`;
     const last = deal.lastActivity || deal.createdAt;

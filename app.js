@@ -143,6 +143,30 @@
  return Math.round((Number(amount) || 0) * commissionRate());
  }
 
+ function staffCommissionStats(list) {
+ const rev = revenueStats(list);
+ const rate = commissionRate();
+ return {
+ rate,
+ openCut: staffCut(rev.openPotential),
+ wonCut: staffCut(rev.wonRevenue),
+ totalCut: staffCut(rev.openPotential + rev.wonRevenue),
+ openDeals: rev.open,
+ wonDeals: rev.won,
+ activeDeals: rev.active,
+ openRevenue: rev.openPotential,
+ wonRevenue: rev.wonRevenue
+ };
+ }
+
+ function formatStaffMoney(amount) {
+ return formatMoney(staffCut(amount));
+ }
+
+ function showAdminRevenueUi() {
+ return isManager();
+ }
+
  function isStaffMember() {
  const me = staffName();
  if (!me || isManager()) return false;
@@ -211,6 +235,7 @@
  }
  }
  if (remote.teamConfig) teamConfig = { ...teamConfig, ...remote.teamConfig };
+ maybeEnsureReminders();
  localStorage.setItem(cfg.storageKey, JSON.stringify(buildPayload()));
  refreshAssigneeFilters();
  applyMyDealsFilter();
@@ -292,7 +317,7 @@
  return hit || raw;
  }
 
- function addTask({ pharmacyId, title, assignee, dueDate }) {
+ function addTask({ pharmacyId, title, assignee, dueDate, reminderKey, reminderType }) {
  const p = pharmacies.find((x) => x.id === pharmacyId);
  const resolvedAssignee = resolveAssignee(assignee);
  const task = {
@@ -304,7 +329,9 @@
  dueDate: dueDate || today(),
  status: "open",
  createdBy: sync?.currentUser?.() || "Team member",
- createdAt: today()
+ createdAt: today(),
+ reminderKey: reminderKey || "",
+ reminderType: reminderType || ""
  };
  tasks.unshift(task);
  taskAlertSeen.add(task.id);
@@ -494,6 +521,140 @@
  return record;
  }
 
+ function addWeeks(dateStr, weeks) {
+ const d = new Date(dateStr || today());
+ d.setDate(d.getDate() + weeks * 7);
+ return d.toISOString().slice(0, 10);
+ }
+
+ function orderUnitsForDeal(p) {
+ if (p.lastOrderUnits) return Number(p.lastOrderUnits) || 0;
+ if (p.units) return Number(p.units) || 0;
+ if (p.orderTier === "custom") return 0;
+ return tierMeta(p.orderTier)?.units || 500;
+ }
+
+ function inReorderProgram(p) {
+ if (p.reorderProgram === true) return true;
+ if (p.reorderProgram === false) return false;
+ const rate = cfg.reorderProgram?.reorderRate ?? 0.35;
+ const hash = [...String(p.id || p.name || "")].reduce((s, c) => s + c.charCodeAt(0), 0);
+ return (hash % 100) < Math.round(rate * 100);
+ }
+
+ function hasOpenReminder(key) {
+ return tasks.some((t) => t.reminderKey === key && t.status !== "done");
+ }
+
+ function recordWinOrder(p) {
+ const cycleWeeks = cfg.reorderProgram?.cycleWeeks || 6;
+ p.lastOrderDate = today();
+ p.lastOrderUnits = orderUnitsForDeal(p);
+ p.nextReorderDate = addWeeks(today(), cycleWeeks);
+ if (p.reorderProgram == null) p.reorderProgram = inReorderProgram(p);
+ }
+
+ function ensureReorderReminders() {
+ const prog = cfg.reorderProgram || {};
+ const targetUnits = prog.targetUnits || 1500;
+ const cycleWeeks = prog.cycleWeeks || 6;
+ const relWeeks = prog.relationshipIntervalWeeks || 3;
+ const todayStr = today();
+ let added = 0;
+
+ pharmacies.filter((p) => p.status === "Won" && p.assignee && p.assignee !== "Unassigned").forEach((p) => {
+ if (!p.lastOrderDate && p.closeDate) p.lastOrderDate = p.closeDate;
+ if (p.reorderProgram == null) p.reorderProgram = inReorderProgram(p);
+ if (!p.reorderProgram) return;
+
+ const assignee = resolveAssignee(p.assignee);
+ const units = Number(p.lastOrderUnits) || orderUnitsForDeal(p);
+
+ if (units > 0 && units < targetUnits) {
+ const key = `short-order-${p.id}`;
+ if (!hasOpenReminder(key)) {
+ tasks.unshift({
+ id: nextTaskId(),
+ pharmacyId: p.id,
+ pharmacyName: p.name,
+ title: `Follow up: ${p.name} ordered only ${units.toLocaleString()} units — upsell to ${targetUnits.toLocaleString()}`,
+ assignee,
+ dueDate: todayStr,
+ status: "open",
+ reminderKey: key,
+ reminderType: "reorder-short",
+ createdBy: "CRM",
+ createdAt: todayStr
+ });
+ added += 1;
+ }
+ }
+
+ const nextReorder = p.nextReorderDate || addWeeks(p.lastOrderDate || p.closeDate || todayStr, cycleWeeks);
+ if (nextReorder <= addWeeks(todayStr, 7)) {
+ const key = `reorder-due-${p.id}-${nextReorder}`;
+ if (!hasOpenReminder(key)) {
+ tasks.unshift({
+ id: nextTaskId(),
+ pharmacyId: p.id,
+ pharmacyName: p.name,
+ title: `Reorder due: ${p.name} — expect ~${targetUnits.toLocaleString()} units (${cycleWeeks}-week cycle)`,
+ assignee,
+ dueDate: nextReorder,
+ status: "open",
+ reminderKey: key,
+ reminderType: "reorder-due",
+ createdBy: "CRM",
+ createdAt: todayStr
+ });
+ added += 1;
+ }
+ }
+
+ const lastOrder = p.lastOrderDate || p.closeDate;
+ if (lastOrder) {
+ const days = daysSince(lastOrder);
+ const relIntervalDays = relWeeks * 7;
+ const cycleDays = cycleWeeks * 7;
+ if (days >= relIntervalDays && days < cycleDays) {
+ const relTemplates = [
+ `Social: plan cross-post with ${p.name}`,
+ `Relationship: check-in call with ${p.name}`,
+ `Follow up: keep ${p.name} warm between reorders`
+ ];
+ const slot = Math.floor(days / relIntervalDays);
+ const key = `relationship-${p.id}-${slot}`;
+ if (!hasOpenReminder(key)) {
+ tasks.unshift({
+ id: nextTaskId(),
+ pharmacyId: p.id,
+ pharmacyName: p.name,
+ title: relTemplates[slot % relTemplates.length],
+ assignee,
+ dueDate: todayStr,
+ status: "open",
+ reminderKey: key,
+ reminderType: "relationship",
+ createdBy: "CRM",
+ createdAt: todayStr
+ });
+ added += 1;
+ }
+ }
+ }
+ });
+
+ return added;
+ }
+
+ function maybeEnsureReminders() {
+ if ((teamConfig.lastReminderScan || "") === today()) return;
+ if (!isManager()) return;
+ ensureReorderReminders();
+ teamConfig.lastReminderScan = today();
+ save();
+ }
+
  function revenueStats(list) {
  const active = list.filter((p) => p.potentialSale !== false && saleValue(p) > 0);
  const open = active.filter((p) => p.status === "Open");
@@ -551,32 +712,31 @@
  }
 
  function renderStaffEarningsHero(list) {
- const rev = revenueStats(list);
- const rate = Math.round(commissionRate() * 100);
- const openCut = staffCut(rev.openPotential);
- const wonCut = staffCut(rev.wonRevenue);
+ const c = staffCommissionStats(list);
  const me = staffName();
+ const rate = Math.round(c.rate * 100);
+ const progress = c.totalCut ? Math.min(100, (c.wonCut / c.totalCut) * 100) : 0;
  $("#revenue-hero").innerHTML = `
  <div class="revenue-hero-top staff-earnings-top">
  <div>
- <h2>${escapeHtml(me)}'s pipeline</h2>
- <p class="tagline"><strong>Your deals + any deal Lewis tasks you on</strong> show here. Browse all stores under <strong>Organizations</strong> to be proactive. Every close pays <strong>${rate}%</strong>.</p>
+ <h2>${escapeHtml(me)}'s commission</h2>
+ <p class="tagline">You only see <strong>your ${rate}% cut</strong> — never the full company pipeline. Browse stores under <strong>Organizations</strong> to claim new deals.</p>
  </div>
  <div class="revenue-big staff-cut-big">
- <span>Your cut on open deals (${rate}%)</span>
- <strong>${formatMoney(openCut)}</strong>
- <small>${rev.open} open deals · ${formatMoney(rev.openPotential)} pipeline</small>
+ <span>Your total commission potential</span>
+ <strong>${formatMoney(c.totalCut)}</strong>
+ <small>${c.openDeals} open + ${c.wonDeals} won deals</small>
  </div>
  </div>
  <div class="revenue-progress">
- <div class="revenue-progress-label"><span>Won commission earned</span><span>${formatMoney(wonCut)} from ${rev.won} wins</span></div>
- <div class="revenue-bar"><div class="revenue-bar-fill staff-bar-fill" style="width:${rev.won ? Math.min(100, (rev.wonRevenue / (rev.openPotential + rev.wonRevenue || 1)) * 100) : 0}%"></div></div>
+ <div class="revenue-progress-label"><span>Commission earned</span><span>${formatMoney(c.wonCut)} won</span></div>
+ <div class="revenue-bar"><div class="revenue-bar-fill staff-bar-fill" style="width:${progress}%"></div></div>
  </div>
  <div class="revenue-tiers staff-earnings-tiers">
- <article class="tier-stat staff-tier-highlight"><span>If you close everything open</span><strong>${formatMoney(openCut)}</strong><small>${rate}% of ${formatMoney(rev.openPotential)}</small></article>
- <article class="tier-stat"><span>Already won</span><strong>${formatMoney(wonCut)}</strong><small>${rev.won} deals · ${formatMoney(rev.wonRevenue)} revenue</small></article>
- <article class="tier-stat"><span>Deals assigned to you</span><strong>${rev.active}</strong><small>${rev.open} still open</small></article>
- <article class="tier-stat"><span>Top deal tier</span><strong>${formatMoney(3025 * commissionRate())}</strong><small>Scale order ($3,025) @ ${rate}%</small></article>
+ <article class="tier-stat staff-tier-highlight"><span>Open deals — your cut</span><strong>${formatMoney(c.openCut)}</strong><small>${c.openDeals} deals @ ${rate}%</small></article>
+ <article class="tier-stat"><span>Won — your cut</span><strong>${formatMoney(c.wonCut)}</strong><small>${c.wonDeals} closed deals</small></article>
+ <article class="tier-stat"><span>Per-deal examples</span><strong>${formatMoney(825 * c.rate)} – ${formatMoney(3025 * c.rate)}</strong><small>Starter to Scale @ ${rate}%</small></article>
+ <article class="tier-stat"><span>Reorder reminders</span><strong>${tasks.filter((t) => t.reminderType && samePerson(t.assignee, me) && t.status !== "done").length}</strong><small>Follow-ups in Activities</small></article>
  </div>
  `;
  }
@@ -613,12 +773,14 @@
  const m = metrics(list);
  const rev = revenueStats(list);
  if (staffViewActive()) {
- const rate = Math.round(commissionRate() * 100);
+ const c = staffCommissionStats(list);
+ const rate = Math.round(c.rate * 100);
+ const myReminders = tasks.filter((t) => t.reminderType && samePerson(t.assignee, staffName()) && t.status !== "done").length;
  $("#metrics").innerHTML = `
- <article class="metric-card staff-metric"><span>Your open deals</span><strong>${m.open}</strong></article>
- <article class="metric-card staff-metric"><span>Your pipeline</span><strong>${formatMoney(rev.openPotential)}</strong></article>
- <article class="metric-card staff-metric staff-metric-cut"><span>Your cut (${rate}%)</span><strong>${formatMoney(staffCut(rev.openPotential))}</strong></article>
- <article class="metric-card staff-metric"><span>Won commission</span><strong>${formatMoney(staffCut(rev.wonRevenue))}</strong></article>
+ <article class="metric-card staff-metric staff-metric-cut"><span>Your cut — open (${rate}%)</span><strong>${formatMoney(c.openCut)}</strong></article>
+ <article class="metric-card staff-metric staff-metric-cut"><span>Your cut — won</span><strong>${formatMoney(c.wonCut)}</strong></article>
+ <article class="metric-card staff-metric"><span>Total commission</span><strong>${formatMoney(c.totalCut)}</strong></article>
+ <article class="metric-card staff-metric"><span>Reorder &amp; follow-ups</span><strong>${myReminders}</strong></article>
  `;
  return;
  }
@@ -713,6 +875,7 @@
  if (stage === "Won") {
  item.status = "Won";
  item.closeDate = today();
+ recordWinOrder(item);
  } else if (stage === "Lost") {
  item.status = "Lost";
  item.closeDate = today();
@@ -739,8 +902,8 @@
  ? `<select class="quick-assign" data-id="${p.id}" onclick="event.stopPropagation()" aria-label="Assign owner">${assignOpts}</select>`
  : `<span class="deal-assignee-you">${escapeHtml(p.assignee || "You")}</span>`;
  const valueUi = val > 0
- ? (staffViewActive() || !isManager()
- ? `<div class="deal-value-stack"><span class="deal-value">${formatMoney(val)}</span><span class="deal-cut">Your ${rate}%: <strong>${formatMoney(cut)}</strong></span></div>`
+ ? (staffViewActive()
+ ? `<span class="deal-value staff-deal-cut">Your ${rate}%: <strong>${formatMoney(cut)}</strong></span>`
  : `<span class="deal-value">${formatMoney(val)}</span>`)
  : '<span class="deal-value">—</span>';
  const contact = p.contactName ? `<span class="deal-person">${escapeHtml(p.contactName)}</span>` : "";
@@ -790,15 +953,24 @@
  function renderPipelineToolbar(list) {
  const rev = revenueStats(list);
  const weighted = weightedPipeline(list);
+ const c = staffCommissionStats(list);
  const el = $("#pipeline-toolbar");
  if (!el) return;
- el.innerHTML = `
- <div class="pipeline-toolbar-stats">
+ const statsHtml = staffViewActive()
+ ? `
+ <div class="pipeline-stat"><span>Your deals</span><strong>${rev.active}</strong></div>
+ <div class="pipeline-stat"><span>Your cut — open</span><strong class="pd-green">${formatMoney(c.openCut)}</strong></div>
+ <div class="pipeline-stat"><span>Your cut — won</span><strong>${formatMoney(c.wonCut)}</strong></div>
+ <div class="pipeline-stat"><span>Total commission</span><strong class="pd-green">${formatMoney(c.totalCut)}</strong></div>
+ <div class="pipeline-stat"><span>Your activities</span><strong>${myOpenTasks().length}</strong></div>`
+ : `
  <div class="pipeline-stat"><span>Deals in view</span><strong>${rev.active}</strong></div>
  <div class="pipeline-stat"><span>Total value</span><strong class="pd-green">${formatMoney(rev.openPotential)}</strong></div>
  <div class="pipeline-stat"><span>Weighted forecast</span><strong>${formatMoney(weighted)}</strong></div>
- ${staffViewActive() ? `<div class="pipeline-stat"><span>Your cut</span><strong class="pd-green">${formatMoney(staffCut(rev.openPotential))}</strong></div>` : ""}
- <div class="pipeline-stat"><span>Open activities</span><strong>${(isManager() ? tasks.filter((t) => t.status !== "done") : myOpenTasks()).length}</strong></div>
+ <div class="pipeline-stat"><span>Open activities</span><strong>${tasks.filter((t) => t.status !== "done").length}</strong></div>`;
+ el.innerHTML = `
+ <div class="pipeline-toolbar-stats">
+ ${statsHtml}
  </div>
  ${isStaffMember() ? `<select id="staff-pipeline-scope" class="filter-chip" aria-label="Pipeline scope">
  <option value="my-work" ${staffPipelineScope === "my-work" ? "selected" : ""}>My work (deals + tasks)</option>
@@ -824,19 +996,21 @@
  const rows = list
  .filter((p) => p.status !== "Lost" || filters.stage === "Lost")
  .sort((a, b) => saleValue(b) - saleValue(a));
+ const valueHeader = staffViewActive() ? `Your ${Math.round(commissionRate() * 100)}%` : "Value";
  el.innerHTML = rows.length ? `
  <table>
- <thead><tr><th>Deal</th><th>Organization</th><th>Stage</th><th>Owner</th><th>Tasks</th><th>Value</th><th>Days</th></tr></thead>
+ <thead><tr><th>Deal</th><th>Organization</th><th>Stage</th><th>Owner</th><th>Tasks</th><th>${valueHeader}</th><th>Days</th></tr></thead>
  <tbody>${rows.map((p) => {
  const st = stageMeta(normalizeStage(p.stage));
  const val = saleValue(p);
+ const displayVal = staffViewActive() ? staffCut(val) : val;
  return `<tr data-id="${p.id}">
  <td><span class="list-deal">${escapeHtml(p.name)}</span>${p.contactName ? `<br><small style="color:var(--muted)">${escapeHtml(p.contactName)}</small>` : ""}</td>
  <td>${escapeHtml(p.accountType || p.type || "—")} ${p.state ? `· ${escapeHtml(p.state)}` : ""}</td>
  <td><span class="list-stage-pill"><span class="stage-dot" style="background:${st.color}"></span>${escapeHtml(st.name)}</span></td>
  <td>${escapeHtml(p.assignee || "—")}</td>
  <td>${openTasksForDeal(p.id).length ? openTasksForDeal(p.id).map((t) => `<span class="deal-task-chip">${escapeHtml(t.assignee)}</span>`).join(" ") : "—"}</td>
- <td class="list-value">${val ? formatMoney(val) : "—"}</td>
+ <td class="list-value">${displayVal ? formatMoney(displayVal) : "—"}</td>
  <td>${daysInStage(p)}d</td>
  </tr>`;
  }).join("")}</tbody>
@@ -858,6 +1032,7 @@
  .map((stage) => {
  const cards = list.filter((p) => normalizeStage(p.stage) === stage.name);
  const value = cards.reduce((s, p) => s + saleValue(p), 0);
+ const displayValue = staffViewActive() ? staffCut(value) : value;
  const prob = stage.probability ?? 0;
  return `
  <section class="pipeline-column" data-stage="${stage.name}" style="--stage-color:${stage.color}">
@@ -867,8 +1042,8 @@
  <span class="stage-prob">${prob}% likelihood</span>
  </div>
  <div class="column-sum">
- <strong>${formatMoney(value)}</strong>
- <small><span class="column-count">${cards.length}</span> deals</small>
+ <strong>${formatMoney(displayValue)}</strong>
+ <small><span class="column-count">${cards.length}</span> deals${staffViewActive() ? ` · your ${Math.round(commissionRate() * 100)}%` : ""}</small>
  </div>
  </header>
  <div class="column-body" data-drop-stage="${stage.name}">
@@ -935,7 +1110,7 @@
  ${p.phone ? `<div>Tel: ${escapeHtml(p.phone)}</div>` : ""}
  ${p.email ? `<div>Email: ${escapeHtml(p.email)}</div>` : ""}
  <div>Type: ${escapeHtml(p.accountType || p.type || "Independent")}</div>
- ${saleValue(p) > 0 ? `<div>$ <span class="pill-revenue">${formatMoney(saleValue(p))}</span> ${escapeHtml(tierLabel(p))}${staffViewActive() ? ` · <span class="deal-cut-inline">Your cut ${formatMoney(staffCut(saleValue(p)))}</span>` : ""}</div>` : ""}
+ ${saleValue(p) > 0 ? `<div>$ <span class="pill-revenue">${staffViewActive() ? formatMoney(staffCut(saleValue(p))) : formatMoney(saleValue(p))}</span> ${staffViewActive() ? `your ${Math.round(commissionRate() * 100)}%` : escapeHtml(tierLabel(p))}</div>` : ""}
  </div>
  <div class="store-actions">
  ${canAct
@@ -951,11 +1126,13 @@
  const list = filteredPharmacies("stores");
  const browseBanner = isStaffMember()
  ? `<div class="staff-browse-banner">
- <strong>Browse all ${pharmacies.length} stores</strong> — search by name, suburb, or state. Open any store to log a call, add a note, or <strong>claim the deal</strong> yourself.
+ <strong>Browse all ${pharmacies.length} stores</strong> — search by name, suburb, or state. Open any store to log a call, add a note, or <strong>claim the deal</strong> yourself. You only see <strong>your ${Math.round(commissionRate() * 100)}% cut</strong> on claimed deals.
  </div>`
  : "";
+ if (!staffViewActive()) {
  renderViewHero(list);
  renderMetrics(list);
+ }
  const grid = $("#stores-grid");
  grid.innerHTML = browseBanner + (list.length
  ? list.map(storeCard).join("")
@@ -1002,8 +1179,10 @@
 
  function renderContacts() {
  const list = filteredPharmacies("contacts");
+ if (!staffViewActive()) {
  renderViewHero(list);
  renderMetrics(list);
+ }
  const grid = $("#contacts-grid");
  grid.innerHTML = list.length
  ? list.map(contactCard).join("")
@@ -1037,7 +1216,7 @@
  <div>
  <h2 style="margin:0;font-size:18px;">${staffTasks ? "My tasks" : "Team tasks"}</h2>
  <p style="margin:4px 0 0;color:var(--muted);font-size:13px;">${staffTasks
- ? "Your tasks — linked deals also appear on your Deals pipeline."
+ ? "Your tasks — reorder reminders (6-week cycle), upsell follow-ups, and relationship check-ins appear here automatically."
  : "Assign follow-ups to staff. The deal shows on their pipeline instantly."}</p>
  </div>
  <div class="tasks-actions">
@@ -1052,6 +1231,9 @@
  <article class="task-card ${t.status === "done" ? "done" : ""}" data-id="${t.id}">
  <div class="task-top">
  <span class="pill ${t.status === "done" ? "" : "pill-high"}">${t.status === "done" ? "Done" : "Open"}</span>
+ ${t.reminderType === "reorder-due" ? `<span class="pill pill-reorder">Reorder</span>` : ""}
+ ${t.reminderType === "reorder-short" ? `<span class="pill pill-reorder-short">Upsell</span>` : ""}
+ ${t.reminderType === "relationship" ? `<span class="pill pill-relationship">Relationship</span>` : ""}
  <small>Due ${escapeHtml(t.dueDate || "-")}</small>
  </div>
  <h3>${escapeHtml(t.title)}</h3>
@@ -1104,9 +1286,9 @@
  <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 14px;">You earn <strong>${rate}%</strong> on every deal you close. Push your assigned stores through the pipeline — your cut updates live as deals move forward.</p>
  <div class="staff-settings-stats">
  <div><span>Open deals</span><strong>${rev.open}</strong></div>
- <div><span>Pipeline value</span><strong>${formatMoney(rev.openPotential)}</strong></div>
- <div class="staff-settings-cut"><span>Your cut (${rate}%)</span><strong>${formatMoney(staffCut(rev.openPotential))}</strong></div>
- <div><span>Won commission</span><strong>${formatMoney(staffCut(rev.wonRevenue))}</strong></div>
+ <div class="staff-settings-cut"><span>Your cut — open (${rate}%)</span><strong>${formatMoney(staffCut(rev.openPotential))}</strong></div>
+ <div class="staff-settings-cut"><span>Your cut — won</span><strong>${formatMoney(staffCut(rev.wonRevenue))}</strong></div>
+ <div><span>Total commission</span><strong>${formatMoney(staffCut(rev.openPotential + rev.wonRevenue))}</strong></div>
  </div>
  <button class="btn btn-ghost btn-small" id="btn-logout" type="button" style="margin-top:14px;">Sign out</button>
  </article>
@@ -1288,7 +1470,15 @@
  ? { pipeline: "My deals", stores: "My organizations", contacts: "My people", tasks: "My activities", settings: "Settings" }
  : { pipeline: "Deals", stores: "Organizations", contacts: "People", tasks: "Activities", settings: "Settings" };
  $("#page-title").textContent = titles[activeView] || "CRM";
- $("#revenue-hero").style.display = (activeView === "settings" || activeView === "tasks") ? "none" : "block";
+ const showAdminHero = !staffViewActive() && activeView !== "settings" && activeView !== "tasks";
+ const showStaffHero = staffViewActive() && activeView === "pipeline";
+ $("#revenue-hero").style.display = (showAdminHero || showStaffHero) ? "block" : "none";
+ const metricsEl = $("#metrics");
+ if (metricsEl) {
+ metricsEl.style.display = staffViewActive()
+ ? (activeView === "pipeline" ? "" : "none")
+ : (activeView === "settings" || activeView === "tasks" ? "none" : "");
+ }
  updateStaffUi();
  if (activeView === "pipeline") renderPipeline();
  if (activeView === "stores") renderStores();
@@ -1341,9 +1531,12 @@
  tabs.hidden = false;
  const val = saleValue(p);
  const stage = normalizeStage(p.stage);
+ const bannerValue = staffViewActive() && val
+ ? `${formatMoney(staffCut(val))} <small>your ${Math.round(commissionRate() * 100)}%</small>`
+ : (val ? formatMoney(val) : "No value");
  banner.innerHTML = `
  <div>
- <div class="deal-banner-value">${val ? formatMoney(val) : "No value"}</div>
+ <div class="deal-banner-value">${bannerValue}</div>
  <div class="deal-banner-meta">${escapeHtml(p.assignee || "Unassigned")} · ${escapeHtml(stage)} · ${daysInStage(p)} days in stage</div>
  <div class="deal-stage-pills">${cfg.pipelineStages.filter((s) => s.name !== "Lost").map((s) =>
  `<button type="button" class="deal-stage-pill ${s.name === stage ? "active" : ""}" data-stage-pick="${s.name}" style="${s.name === stage ? `background:${s.color};border-color:${s.color}` : ""}">${s.name}</button>`
@@ -1502,11 +1695,15 @@
  }
  if (tier === "custom") {
  const v = Number(form.customTotal?.value) || 0;
- preview.innerHTML = `<span>Your custom deal - edit anytime once they're onboard</span><strong>${formatMoney(v)}</strong>`;
+ preview.innerHTML = staffViewActive()
+ ? `<span>Your commission on this deal</span><strong>${formatMoney(staffCut(v))}</strong>`
+ : `<span>Your custom deal - edit anytime once they're onboard</span><strong>${formatMoney(v)}</strong>`;
  return;
  }
  const t = tierMeta(Number(tier));
- preview.innerHTML = `
+ preview.innerHTML = staffViewActive()
+ ? `<span>Your ${Math.round(commissionRate() * 100)}% on ${t.label}</span><strong>${formatMoney(staffCut(t.total))}</strong>`
+ : `
  <span>${escapeHtml(t.note)}</span>
  <strong>${formatMoney(t.total)}</strong>
  <div>${t.units.toLocaleString()} units x $${t.unitPrice.toFixed(2)} = ${formatMoney(t.subtotal)} + ${formatMoney(t.shipping)} shipping + GST</div>`;
@@ -1796,6 +1993,7 @@
  }
  load();
  markTasksSeen(tasks);
+ maybeEnsureReminders();
  if (isManager()) taskFilter = "open";
  bindUi();
  applyMyDealsFilter();
