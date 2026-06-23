@@ -721,13 +721,12 @@
  function renderStaffEarningsHero(list) {
  const c = staffCommissionStats(list);
  const me = staffName();
- const rate = Math.round(c.rate * 100);
  const progress = c.totalCut ? Math.min(100, (c.wonCut / c.totalCut) * 100) : 0;
  $("#revenue-hero").innerHTML = `
  <div class="revenue-hero-top staff-earnings-top">
  <div>
  <h2>${escapeHtml(me)}'s commission</h2>
- <p class="tagline">Search any chemist in the header (e.g. <strong>Chempro</strong>) and tap <strong>Add to my pipeline</strong>. You only see <strong>your ${rate}% cut</strong> on your deals.</p>
+ <p class="tagline">Search any chemist in the header (e.g. <strong>Chempro</strong>) and tap <strong>Add to my pipeline</strong>. You only see <strong>your % cut</strong> on your deals.</p>
  </div>
  <div class="revenue-big staff-cut-big">
  <span>Your total commission potential</span>
@@ -740,9 +739,9 @@
  <div class="revenue-bar"><div class="revenue-bar-fill staff-bar-fill" style="width:${progress}%"></div></div>
  </div>
  <div class="revenue-tiers staff-earnings-tiers">
- <article class="tier-stat staff-tier-highlight"><span>Open deals — your cut</span><strong>${formatMoney(c.openCut)}</strong><small>${c.openDeals} deals @ ${rate}%</small></article>
+ <article class="tier-stat staff-tier-highlight"><span>Open deals — your cut</span><strong>${formatMoney(c.openCut)}</strong><small>${c.openDeals} deals</small></article>
  <article class="tier-stat"><span>Won — your cut</span><strong>${formatMoney(c.wonCut)}</strong><small>${c.wonDeals} closed deals</small></article>
- <article class="tier-stat"><span>Per-deal examples</span><strong>${formatMoney(825 * c.rate)} – ${formatMoney(3025 * c.rate)}</strong><small>Starter to Scale @ ${rate}%</small></article>
+ <article class="tier-stat"><span>Per-deal examples</span><strong>${formatMoney(825 * c.rate)} – ${formatMoney(3025 * c.rate)}</strong><small>Starter to Scale</small></article>
  <article class="tier-stat"><span>Reorder reminders</span><strong>${tasks.filter((t) => t.reminderType && samePerson(t.assignee, me) && t.status !== "done").length}</strong><small>Follow-ups in Activities</small></article>
  </div>
  `;
@@ -927,7 +926,6 @@
  }
  const matches = globalSearchMatches(q);
  const staff = staffViewActive();
- const rate = Math.round(commissionRate() * 100);
  if (!matches.length) {
  box.innerHTML = `<div class="search-results-empty">No chemists matching “${escapeHtml(q)}” — try suburb or chain name</div>`;
  box.hidden = false;
@@ -939,7 +937,7 @@
  const val = saleValue(p);
  const cut = staffCut(val);
  const mine = isAssignedToMe(p);
- const valueLabel = staff ? `Your ${rate}%: ${formatMoney(cut)}` : formatMoney(val);
+ const valueLabel = staff ? `Your %: ${formatMoney(cut)}` : formatMoney(val);
  let actions = "";
  if (staff) {
  actions = mine
@@ -1057,7 +1055,6 @@
  const assignOpts = assigneeList().map((a) => `<option value="${escapeHtml(a)}" ${a === (p.assignee || "Unassigned") ? "selected" : ""}>${escapeHtml(a)}</option>`).join("");
  const val = saleValue(p);
  const cut = val > 0 ? staffCut(val) : 0;
- const rate = Math.round(commissionRate() * 100);
  const days = daysInStage(p);
  const daysCls = days >= 14 ? "deal-days stale" : "deal-days";
  const assignUi = isManager()
@@ -1065,7 +1062,7 @@
  : `<span class="deal-assignee-you">${escapeHtml(p.assignee || "You")}</span>`;
  const valueUi = val > 0
  ? (staffViewActive()
- ? `<span class="deal-value staff-deal-cut">Your ${rate}%: <strong>${formatMoney(cut)}</strong></span>`
+ ? `<span class="deal-value staff-deal-cut">Your %: <strong>${formatMoney(cut)}</strong></span>`
  : `<span class="deal-value">${formatMoney(val)}</span>`)
  : '<span class="deal-value">—</span>';
  const contact = p.contactName ? `<span class="deal-person">${escapeHtml(p.contactName)}</span>` : "";
@@ -1154,7 +1151,7 @@
  const rows = list
  .filter((p) => p.status !== "Lost" || filters.stage === "Lost")
  .sort((a, b) => saleValue(b) - saleValue(a));
- const valueHeader = staffViewActive() ? `Your ${Math.round(commissionRate() * 100)}%` : "Value";
+ const valueHeader = staffViewActive() ? "Your %" : "Value";
  el.innerHTML = rows.length ? `
  <table>
  <thead><tr><th>Deal</th><th>Organization</th><th>Stage</th><th>Owner</th><th>Tasks</th><th>${valueHeader}</th><th>Days</th></tr></thead>
@@ -1207,7 +1204,7 @@
  </div>
  <div class="column-sum">
  <strong>${formatMoney(displayValue)}</strong>
- <small><span class="column-count">${cards.length}</span> deals${staffViewActive() ? ` · your ${Math.round(commissionRate() * 100)}%` : ""}</small>
+ <small><span class="column-count">${cards.length}</span> deals${staffViewActive() ? " · your %" : ""}</small>
  </div>
  </header>
  <div class="column-body" data-drop-stage="${stage.name}">
@@ -1274,7 +1271,7 @@
  ${p.phone ? `<div>Tel: ${escapeHtml(p.phone)}</div>` : ""}
  ${p.email ? `<div>Email: ${escapeHtml(p.email)}</div>` : ""}
  <div>Type: ${escapeHtml(p.accountType || p.type || "Independent")}</div>
- ${saleValue(p) > 0 ? `<div>$ <span class="pill-revenue">${staffViewActive() ? formatMoney(staffCut(saleValue(p))) : formatMoney(saleValue(p))}</span> ${staffViewActive() ? `your ${Math.round(commissionRate() * 100)}%` : escapeHtml(tierLabel(p))}</div>` : ""}
+ ${saleValue(p) > 0 ? `<div>$ <span class="pill-revenue">${staffViewActive() ? formatMoney(staffCut(saleValue(p))) : formatMoney(saleValue(p))}</span> ${staffViewActive() ? "your %" : escapeHtml(tierLabel(p))}</div>` : ""}
  </div>
  <div class="store-actions">
  ${staffViewActive() && !isAssignedToMe(p)
@@ -1293,7 +1290,7 @@
  const list = filteredPharmacies("stores");
  const browseBanner = isStaffMember()
  ? `<div class="staff-browse-banner">
- <strong>Browse all ${pharmacies.length} stores</strong> — use the search bar (e.g. “Chempro”) to find any chemist, then <strong>Add to my pipeline</strong>. You only see <strong>your ${Math.round(commissionRate() * 100)}% cut</strong> on your deals.
+ <strong>Browse all ${pharmacies.length} stores</strong> — use the search bar (e.g. “Chempro”) to find any chemist, then <strong>Add to my pipeline</strong>. You only see <strong>your % cut</strong> on your deals.
  </div>`
  : "";
  if (!staffViewActive()) {
@@ -1449,17 +1446,16 @@
 
  function renderSettings() {
  if (staffViewActive()) {
- const rate = Math.round(commissionRate() * 100);
  const mine = staffPipelineDeals();
  const rev = revenueStats(mine);
  $("#settings-content").innerHTML = `
  <div class="settings-grid">
  <article class="settings-card settings-wide staff-settings-hero">
  <h3>Your earnings dashboard</h3>
- <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 14px;">You earn <strong>${rate}%</strong> on every deal you close. Push your assigned stores through the pipeline — your cut updates live as deals move forward.</p>
+ <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 14px;">You earn <strong>your %</strong> on every deal you close. Push your assigned stores through the pipeline — your cut updates live as deals move forward.</p>
  <div class="staff-settings-stats">
  <div><span>Open deals</span><strong>${rev.open}</strong></div>
- <div class="staff-settings-cut"><span>Your cut — open (${rate}%)</span><strong>${formatMoney(staffCut(rev.openPotential))}</strong></div>
+ <div class="staff-settings-cut"><span>Your cut — open</span><strong>${formatMoney(staffCut(rev.openPotential))}</strong></div>
  <div class="staff-settings-cut"><span>Your cut — won</span><strong>${formatMoney(staffCut(rev.wonRevenue))}</strong></div>
  <div><span>Total commission</span><strong>${formatMoney(staffCut(rev.openPotential + rev.wonRevenue))}</strong></div>
  </div>
@@ -1705,7 +1701,7 @@
  const val = saleValue(p);
  const stage = normalizeStage(p.stage);
  const bannerValue = staffViewActive() && val
- ? `${formatMoney(staffCut(val))} <small>your ${Math.round(commissionRate() * 100)}%</small>`
+ ? `${formatMoney(staffCut(val))} <small>your %</small>`
  : (val ? formatMoney(val) : "No value");
  banner.innerHTML = `
  <div>
@@ -1875,7 +1871,7 @@
  }
  const t = tierMeta(Number(tier));
  preview.innerHTML = staffViewActive()
- ? `<span>Your ${Math.round(commissionRate() * 100)}% on ${t.label}</span><strong>${formatMoney(staffCut(t.total))}</strong>`
+ ? `<span>Your % on ${t.label}</span><strong>${formatMoney(staffCut(t.total))}</strong>`
  : `
  <span>${escapeHtml(t.note)}</span>
  <strong>${formatMoney(t.total)}</strong>
@@ -2227,7 +2223,7 @@
  }
  const eyebrow = $(".site-header .eyebrow");
  if (eyebrow) {
- eyebrow.dataset.staffSuffix = active ? ` · My work + ${Math.round(commissionRate() * 100)}% cut` : "";
+ eyebrow.dataset.staffSuffix = active ? " · My work + your % cut" : "";
  }
  }
 
