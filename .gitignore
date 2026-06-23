@@ -8,6 +8,11 @@ godaddy-dns.png
 jsonbin-setup.txt
 .env
 .env.local
+render-env.txt
+github-token.png
+.chrome-jsonbin-profile/
+.chrome-render-profile/
+.chrome-rotate-tmp/
 *.log
 .DS_Store
 Thumbs.db

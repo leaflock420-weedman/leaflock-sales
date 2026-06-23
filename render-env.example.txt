@@ -1,0 +1,6 @@
+CRM_PASSWORD_SUFFIX=LeafLock2026
+SESSION_SECRET=generate-a-random-64-char-hex-string
+GITHUB_TOKEN=your-github-token-with-repo-scope
+JSONBIN_MASTER_KEY=
+JSONBIN_BIN_ID=
+RESEND_API_KEY=

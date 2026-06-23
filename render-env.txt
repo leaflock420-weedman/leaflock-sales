@@ -1,6 +1,0 @@
-CRM_PASSWORD_SUFFIX=LeafLock2026
-SESSION_SECRET=1d6cd1f2b8e85fecceab7d017cc462c59fe8e1d2699f5e88c5326ddfee180a28
-GITHUB_TOKEN=  (paste token from GitHub tab - Settings -> Developer settings -> Tokens -> repo scope)
-JSONBIN_MASTER_KEY=  (leave blank)
-JSONBIN_BIN_ID=  (leave blank)
-RESEND_API_KEY=  (leave blank)
