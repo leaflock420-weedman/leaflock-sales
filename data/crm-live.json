@@ -27838,26 +27838,29 @@
   "teamConfig": {
     "members": [
       "Lewis",
+      "Brittany",
       "Sarah",
       "James"
     ],
     "assignees": [
       "Unassigned",
       "Lewis",
+      "Brittany",
       "Sarah",
       "James",
       "Sales Team"
     ],
     "managers": [
-      "Lewis"
+      "Lewis",
+      "Brittany"
     ],
     "commissionRate": 0.2,
     "memberEmails": {
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-21T22:45:30.669Z",
-  "updatedBy": "sarah",
+  "savedAt": "2026-06-22T12:00:00.000Z",
+  "updatedBy": "Lewis",
   "meta": {
     "emailLog": {}
   }
