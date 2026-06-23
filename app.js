@@ -2,6 +2,8 @@
  const cfg = window.CRM_CONFIG;
  const stageNames = cfg.pipelineStages.map((s) => s.name);
  const stageColors = Object.fromEntries(cfg.pipelineStages.map((s) => [s.name, s.color]));
+ const NEW_LEAD_STAGE = "New Lead";
+ const LEGACY_NEW_LEAD_STAGE = "Appointment";
 
  let pharmacies = [];
  let tasks = [];
@@ -219,6 +221,40 @@
  return filteredPharmacies("pipeline");
  }
 
+ function teamRoster() {
+ return teamConfig.members?.length ? teamConfig.members : (cfg.defaultTeamMembers || []);
+ }
+
+ function isTeamAssignedDeal(p) {
+ const assignee = (p.assignee || "").trim();
+ if (!assignee || assignee === "Unassigned") return false;
+ return teamRoster().some((m) => samePerson(m, assignee));
+ }
+
+ function isPastNewLead(p) {
+ const stage = normalizeStage(p?.stage);
+ return stage !== NEW_LEAD_STAGE && stage !== "Lost";
+ }
+
+ function pipelinePastNewLead(list) {
+ return (list || []).filter((p) => isPastNewLead(p));
+ }
+
+ function teamActivePipelineDeals() {
+ return pipelinePastNewLead(pharmacies.filter(isTeamAssignedDeal));
+ }
+
+ function migratePipelineStages() {
+ let changed = false;
+ pharmacies.forEach((p) => {
+ if (p.stage === LEGACY_NEW_LEAD_STAGE) {
+ p.stage = NEW_LEAD_STAGE;
+ changed = true;
+ }
+ });
+ return changed;
+ }
+
  function buildPayload() {
  return {
  pharmacies,
@@ -235,6 +271,7 @@
  const actor = remote.updatedBy || "Your manager";
  let newForMe = 0;
  if (Array.isArray(remote.pharmacies) && remote.pharmacies.length) pharmacies = remote.pharmacies;
+ migratePipelineStages();
  if (Array.isArray(remote.tasks)) {
  tasks = remote.tasks;
  if (notify) {
@@ -294,12 +331,14 @@
  tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
  if (parsed.teamConfig) teamConfig = { ...teamConfig, ...parsed.teamConfig };
  sanitizeTeamConfig();
+ migratePipelineStages();
  return;
  }
  } catch (_) {}
  }
  pharmacies = JSON.parse(JSON.stringify(window.SEED_PHARMACIES || []));
  tasks = [];
+ migratePipelineStages();
  save(false);
  }
 
@@ -464,7 +503,8 @@
  }
 
  function normalizeStage(stage) {
- return stageNames.includes(stage) ? stage : "Appointment";
+ if (!stage || stage === LEGACY_NEW_LEAD_STAGE) return NEW_LEAD_STAGE;
+ return stageNames.includes(stage) ? stage : NEW_LEAD_STAGE;
  }
 
  function filteredPharmacies(viewContext) {
@@ -703,23 +743,24 @@
 
  function updateSidebarStats() {
  const list = isStaffMember() ? staffPipelineDeals() : pharmacies;
+ const activeList = isStaffMember() ? pipelinePastNewLead(list) : teamActivePipelineDeals();
  const m = metrics(list);
- const rev = revenueStats(list);
+ const rev = revenueStats(activeList);
  $("#stat-total").textContent = m.total;
- $("#stat-open").textContent = m.open;
- $("#stat-won").textContent = m.won;
+ $("#stat-open").textContent = rev.open;
+ $("#stat-won").textContent = rev.won;
  $("#stat-value").textContent = staffViewActive()
  ? formatMoney(staffCut(rev.openPotential))
- : formatMoney(rev.totalPotential);
+ : formatMoney(rev.openPotential);
  }
 
  function renderViewHero(list) {
  if (staffViewActive()) renderStaffEarningsHero(list);
- else renderRevenueHero(list);
+ else renderRevenueHero();
  }
 
  function renderStaffEarningsHero(list) {
- const c = staffCommissionStats(list);
+ const c = staffCommissionStats(pipelinePastNewLead(list));
  const me = staffName();
  const progress = c.totalCut ? Math.min(100, (c.wonCut / c.totalCut) * 100) : 0;
  $("#revenue-hero").innerHTML = `
@@ -739,7 +780,7 @@
  <div class="revenue-bar"><div class="revenue-bar-fill staff-bar-fill" style="width:${progress}%"></div></div>
  </div>
  <div class="revenue-tiers staff-earnings-tiers">
- <article class="tier-stat staff-tier-highlight"><span>Open deals — your cut</span><strong>${formatMoney(c.openCut)}</strong><small>${c.openDeals} deals</small></article>
+ <article class="tier-stat staff-tier-highlight"><span>In current view — your cut</span><strong>${formatMoney(c.openCut)}</strong><small>${c.openDeals} open past New Lead</small></article>
  <article class="tier-stat"><span>Won — your cut</span><strong>${formatMoney(c.wonCut)}</strong><small>${c.wonDeals} closed deals</small></article>
  <article class="tier-stat"><span>Per-deal examples</span><strong>${formatMoney(825 * c.rate)} – ${formatMoney(3025 * c.rate)}</strong><small>Starter to Scale</small></article>
  <article class="tier-stat"><span>Reorder reminders</span><strong>${tasks.filter((t) => t.reminderType && samePerson(t.assignee, me) && t.status !== "done").length}</strong><small>Follow-ups in Activities</small></article>
@@ -747,9 +788,9 @@
  `;
  }
 
- function renderRevenueHero(list) {
+ function renderRevenueHero() {
  const all = revenueStats(pharmacies);
- const view = revenueStats(list);
+ const view = revenueStats(teamActivePipelineDeals());
  const t = all.tiers;
  $("#revenue-hero").innerHTML = `
  <div class="revenue-hero-top">
@@ -770,7 +811,7 @@
  <article class="tier-stat"><span>Starter 500 units</span><strong>${formatMoney(t[500].sum)}</strong><small>${t[500].count} stores @ $825</small></article>
  <article class="tier-stat"><span>Growth 1,000 units</span><strong>${formatMoney(t[1000].sum)}</strong><small>${t[1000].count} stores @ $1,595</small></article>
  <article class="tier-stat tier-2000"><span>Scale 2,000 units</span><strong>${formatMoney(t[2000].sum)}</strong><small>${t[2000].count} elite stores @ $3,025</small></article>
- <article class="tier-stat"><span>In current view</span><strong>${formatMoney(view.openPotential)}</strong><small>${view.open} open deals visible</small></article>
+ <article class="tier-stat"><span>In current view</span><strong>${formatMoney(view.openPotential)}</strong><small>${view.open} open · team deals past New Lead</small></article>
  </div>
  `;
  }
@@ -879,11 +920,11 @@
  p.assignee = resolveAssignee(me);
  if (p.status === "Lost") {
  p.status = "Open";
- p.stage = "Appointment";
+ p.stage = NEW_LEAD_STAGE;
  p.closeDate = "";
  p.lossReason = "";
  }
- if (!p.stage || p.stage === "Lost") p.stage = "Appointment";
+ if (!p.stage || p.stage === "Lost") p.stage = NEW_LEAD_STAGE;
  if (p.status !== "Open" && p.status !== "Won") p.status = "Open";
  p.stageChangedAt = p.stageChangedAt || today();
  p.lastActivity = today();
@@ -992,7 +1033,7 @@
  const reps = staffReps();
  if (!reps.length) return "";
  const chips = reps.map((name) => {
- const deals = pharmacies.filter((p) => samePerson(p.assignee, name) && p.status !== "Lost");
+ const deals = pharmacies.filter((p) => samePerson(p.assignee, name) && p.status !== "Lost" && isPastNewLead(p));
  const open = deals.filter((p) => p.status === "Open");
  const rev = revenueStats(deals);
  const openRev = revenueStats(open);
@@ -1110,7 +1151,8 @@
  }
 
  function renderPipelineToolbar(list) {
- const rev = revenueStats(list);
+ const statsList = isStaffMember() ? pipelinePastNewLead(list) : list;
+ const rev = revenueStats(statsList);
  const weighted = weightedPipeline(list);
  const el = $("#pipeline-toolbar");
  if (!el) return;
@@ -1178,12 +1220,13 @@
  function renderPipeline() {
  const list = (isManager() ? filteredPharmacies("pipeline") : staffPipelineDeals())
  .filter((p) => p.status !== "Lost" || filters.stage === "Lost");
+ const metricsList = isStaffMember() ? pipelinePastNewLead(list) : list;
  const workloadHost = $("#team-workload");
  if (workloadHost) {
  workloadHost.innerHTML = renderTeamWorkload();
  bindTeamWorkload(workloadHost);
  }
- renderViewHero(list);
+ renderViewHero(metricsList);
  renderMetrics(list);
  renderPipelineToolbar(list);
  renderPipelineList(list);
@@ -1446,7 +1489,7 @@
 
  function renderSettings() {
  if (staffViewActive()) {
- const mine = staffPipelineDeals();
+ const mine = pipelinePastNewLead(staffPipelineDeals());
  const rev = revenueStats(mine);
  $("#settings-content").innerHTML = `
  <div class="settings-grid">
@@ -1654,7 +1697,7 @@
  if (activeView === "contacts") renderContacts();
  if (activeView === "tasks") renderTasks();
  if (activeView === "settings") {
- if (!staffViewActive()) renderRevenueHero(pharmacies);
+ if (!staffViewActive()) renderRevenueHero();
  renderSettings();
  }
  }
@@ -1965,7 +2008,7 @@
  const r = {
  id: "", name: "", address: "", phone: "", email: "", website: "", hasWebsite: false,
  state: "", postcode: "", city: "", country: "Australia", type: "Independent", accountType: "Independent",
- relevance: "Medium", whyRelevant: "", description: "", stage: "Appointment", status: "Open",
+ relevance: "Medium", whyRelevant: "", description: "", stage: NEW_LEAD_STAGE, status: "Open",
  priority: "Medium", source: "Outbound", assignee: "Unassigned", closeDate: "", lossReason: "",
  notes: "", linkedin: "", contactName: "", contactTitle: "Pharmacist", contactType: "Prospect",
  lastActivity: today(), createdAt: today(), stageChangedAt: today(), activities: [],
@@ -2184,6 +2227,7 @@
  return;
  }
  load();
+ if (migratePipelineStages()) save(false);
  await syncAuthUser();
  sanitizeTeamConfig();
  markTasksSeen(tasks);

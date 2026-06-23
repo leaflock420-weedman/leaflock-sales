@@ -8,7 +8,7 @@ window.CRM_CONFIG = {
  },
  currency: "AUD",
  pipelineStages: [
- { id: "appointment", name: "Appointment", color: "#5B8DEF", order: 1, probability: 10 },
+ { id: "new-lead", name: "New Lead", color: "#5B8DEF", order: 1, probability: 10 },
  { id: "proposal", name: "Proposal", color: "#8B5CF6", order: 2, probability: 20 },
  { id: "negotiation", name: "Negotiation", color: "#F59E0B", order: 3, probability: 40 },
  { id: "agreement", name: "Agreement", color: "#10B981", order: 4, probability: 60 },
