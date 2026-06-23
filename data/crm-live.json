@@ -176,7 +176,7 @@
       "relevance": "Medium",
       "whyRelevant": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
       "description": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
-      "stage": "Negotiation",
+      "stage": "Appointment",
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
@@ -202,6 +202,33 @@
       "tax": 145,
       "value": 1595,
       "activities": [
+        {
+          "id": "act-6",
+          "type": "stage",
+          "note": "Moved from Won to Appointment",
+          "createdAt": "2026-06-23T06:02:26.272Z",
+          "createdBy": "lewis",
+          "fromStage": "Won",
+          "toStage": "Appointment"
+        },
+        {
+          "id": "act-5",
+          "type": "stage",
+          "note": "Moved from Agreement to Won",
+          "createdAt": "2026-06-23T06:02:24.283Z",
+          "createdBy": "lewis",
+          "fromStage": "Agreement",
+          "toStage": "Won"
+        },
+        {
+          "id": "act-4",
+          "type": "stage",
+          "note": "Moved from Negotiation to Agreement",
+          "createdAt": "2026-06-23T06:02:23.208Z",
+          "createdBy": "lewis",
+          "fromStage": "Negotiation",
+          "toStage": "Agreement"
+        },
         {
           "id": "act-3",
           "type": "stage",
@@ -27890,7 +27917,7 @@
       "Lewis": "info@leaflock.com.au"
     }
   },
-  "savedAt": "2026-06-23T06:02:23.950Z",
+  "savedAt": "2026-06-23T06:02:28.105Z",
   "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
