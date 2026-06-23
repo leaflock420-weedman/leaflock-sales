@@ -89,7 +89,7 @@
       "relevance": "Medium",
       "whyRelevant": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
       "description": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
-      "stage": "Negotiation",
+      "stage": "Pilot",
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
@@ -101,7 +101,7 @@
       "contactName": "",
       "contactTitle": "Pharmacist",
       "contactType": "Prospect",
-      "lastActivity": "2026-06-21",
+      "lastActivity": "2026-06-23",
       "createdAt": "2026-06-20",
       "potentialSale": true,
       "isPopular": false,
@@ -114,7 +114,18 @@
       "shipping": 50,
       "tax": 145,
       "value": 1595,
-      "activities": []
+      "activities": [
+        {
+          "id": "act-1",
+          "type": "stage",
+          "note": "Moved from Negotiation to Pilot",
+          "createdAt": "2026-06-23T10:58:24.572Z",
+          "createdBy": "lewis",
+          "fromStage": "Negotiation",
+          "toStage": "Pilot"
+        }
+      ],
+      "stageChangedAt": "2026-06-23"
     },
     {
       "id": "pharm-3",
@@ -27990,7 +28001,8 @@
     ],
     "managers": [
       "Lewis",
-      "Brittany"
+      "Brittany",
+      "Sarah"
     ],
     "commissionRate": 0.2,
     "memberEmails": {
@@ -27998,8 +28010,8 @@
     },
     "lastReminderScan": "2026-06-23"
   },
-  "savedAt": "2026-06-23T10:40:57.352Z",
-  "updatedBy": "Sarah",
+  "savedAt": "2026-06-23T11:01:02.375Z",
+  "updatedBy": "lewis",
   "meta": {
     "emailLog": {}
   }
