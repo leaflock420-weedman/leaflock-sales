@@ -28005,9 +28005,11 @@
       "title": "call",
       "assignee": "Sarah",
       "dueDate": "2026-06-21",
-      "status": "open",
+      "status": "done",
       "createdBy": "lewis",
-      "createdAt": "2026-06-21"
+      "createdAt": "2026-06-21",
+      "completedAt": "2026-07-02",
+      "completedBy": "Sarah"
     },
     {
       "id": "task-1",
@@ -28048,7 +28050,7 @@
     },
     "lastReminderScan": "2026-06-25"
   },
-  "savedAt": "2026-07-02T08:01:28.549Z",
+  "savedAt": "2026-07-02T08:02:01.516Z",
   "updatedBy": "Sarah",
   "meta": {
     "emailLog": {}
