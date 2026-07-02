@@ -17,12 +17,12 @@
       "relevance": "Medium",
       "whyRelevant": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
       "description": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
-      "stage": "Agreement",
-      "status": "Open",
+      "stage": "Won",
+      "status": "Won",
       "priority": "Medium",
       "source": "Outbound",
       "assignee": "Sarah",
-      "closeDate": "",
+      "closeDate": "2026-07-02",
       "lossReason": "",
       "notes": "",
       "linkedin": "",
@@ -44,6 +44,15 @@
       "value": 1595,
       "stageChangedAt": "2026-07-02",
       "activities": [
+        {
+          "id": "act-6",
+          "type": "stage",
+          "note": "Moved from Agreement to Won",
+          "createdAt": "2026-07-02T08:02:07.208Z",
+          "createdBy": "Sarah",
+          "fromStage": "Agreement",
+          "toStage": "Won"
+        },
         {
           "id": "act-5",
           "type": "stage",
@@ -88,7 +97,11 @@
           "fromStage": "Proposal",
           "toStage": "Negotiation"
         }
-      ]
+      ],
+      "lastOrderDate": "2026-07-02",
+      "lastOrderUnits": 1000,
+      "nextReorderDate": "2026-08-13",
+      "reorderProgram": true
     },
     {
       "id": "pharm-2",
@@ -28050,7 +28063,7 @@
     },
     "lastReminderScan": "2026-06-25"
   },
-  "savedAt": "2026-07-02T08:02:01.516Z",
+  "savedAt": "2026-07-02T08:02:06.961Z",
   "updatedBy": "Sarah",
   "meta": {
     "emailLog": {}
