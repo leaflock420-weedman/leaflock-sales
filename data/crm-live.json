@@ -3047,7 +3047,7 @@
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
-      "assignee": "Unassigned",
+      "assignee": "Sarah",
       "closeDate": "",
       "lossReason": "",
       "notes": "",
@@ -3055,7 +3055,7 @@
       "contactName": "",
       "contactTitle": "Pharmacist",
       "contactType": "Prospect",
-      "lastActivity": "2026-06-20",
+      "lastActivity": "2026-07-02",
       "createdAt": "2026-06-20",
       "potentialSale": true,
       "isPopular": false,
@@ -3067,7 +3067,17 @@
       "subtotal": 1400,
       "shipping": 50,
       "tax": 145,
-      "value": 1595
+      "value": 1595,
+      "stageChangedAt": "2026-07-02",
+      "activities": [
+        {
+          "id": "act-1",
+          "type": "note",
+          "note": "Sarah added this store to their pipeline",
+          "createdAt": "2026-07-02T08:02:45.272Z",
+          "createdBy": "Sarah"
+        }
+      ]
     },
     {
       "id": "pharm-67",
@@ -28063,7 +28073,7 @@
     },
     "lastReminderScan": "2026-06-25"
   },
-  "savedAt": "2026-07-02T08:02:06.961Z",
+  "savedAt": "2026-07-02T08:02:45.721Z",
   "updatedBy": "Sarah",
   "meta": {
     "emailLog": {}
