@@ -377,7 +377,7 @@
       "relevance": "Medium",
       "whyRelevant": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
       "description": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
-      "stage": "Proposal",
+      "stage": "Negotiation",
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
@@ -404,6 +404,15 @@
       "value": 1595,
       "stageChangedAt": "2026-07-02",
       "activities": [
+        {
+          "id": "act-2",
+          "type": "stage",
+          "note": "Moved from Proposal to Negotiation",
+          "createdAt": "2026-07-02T08:01:13.440Z",
+          "createdBy": "Sarah",
+          "fromStage": "Proposal",
+          "toStage": "Negotiation"
+        },
         {
           "id": "act-1",
           "type": "stage",
@@ -28030,7 +28039,7 @@
     },
     "lastReminderScan": "2026-06-25"
   },
-  "savedAt": "2026-07-02T08:01:20.007Z",
+  "savedAt": "2026-07-02T08:01:24.720Z",
   "updatedBy": "Sarah",
   "meta": {
     "emailLog": {}
