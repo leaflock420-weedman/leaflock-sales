@@ -663,6 +663,13 @@
       "stageChangedAt": "2026-07-14",
       "activities": [
         {
+          "id": "act-2",
+          "type": "call",
+          "note": "called interested email sent",
+          "createdAt": "2026-07-14T05:00:03.134Z",
+          "createdBy": "Sarah"
+        },
+        {
           "id": "act-1",
           "type": "note",
           "note": "Sarah added this store to their pipeline",
@@ -28083,7 +28090,7 @@
     },
     "lastReminderScan": "2026-06-25"
   },
-  "savedAt": "2026-07-14T04:52:34.495Z",
+  "savedAt": "2026-07-14T05:00:02.434Z",
   "updatedBy": "Sarah",
   "meta": {
     "emailLog": {}
