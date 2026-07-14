@@ -17,19 +17,19 @@
       "relevance": "Medium",
       "whyRelevant": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
       "description": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
-      "stage": "Negotiation",
-      "status": "Open",
+      "stage": "Won",
+      "status": "Won",
       "priority": "Medium",
       "source": "Outbound",
       "assignee": "Sarah",
-      "closeDate": "",
+      "closeDate": "2026-07-02",
       "lossReason": "",
       "notes": "",
       "linkedin": "",
       "contactName": "",
       "contactTitle": "Pharmacist",
       "contactType": "Prospect",
-      "lastActivity": "2026-06-23",
+      "lastActivity": "2026-07-02",
       "createdAt": "2026-06-20",
       "potentialSale": true,
       "isPopular": false,
@@ -42,8 +42,26 @@
       "shipping": 50,
       "tax": 145,
       "value": 1595,
-      "stageChangedAt": "2026-06-23",
+      "stageChangedAt": "2026-07-02",
       "activities": [
+        {
+          "id": "act-6",
+          "type": "stage",
+          "note": "Moved from Agreement to Won",
+          "createdAt": "2026-07-02T08:02:07.208Z",
+          "createdBy": "Sarah",
+          "fromStage": "Agreement",
+          "toStage": "Won"
+        },
+        {
+          "id": "act-5",
+          "type": "stage",
+          "note": "Moved from Negotiation to Agreement",
+          "createdAt": "2026-07-02T08:01:15.038Z",
+          "createdBy": "Sarah",
+          "fromStage": "Negotiation",
+          "toStage": "Agreement"
+        },
         {
           "id": "act-4",
           "type": "stage",
@@ -79,7 +97,11 @@
           "fromStage": "Proposal",
           "toStage": "Negotiation"
         }
-      ]
+      ],
+      "lastOrderDate": "2026-07-02",
+      "lastOrderUnits": 1000,
+      "nextReorderDate": "2026-08-13",
+      "reorderProgram": true
     },
     {
       "id": "pharm-2",
@@ -377,7 +399,7 @@
       "relevance": "Medium",
       "whyRelevant": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
       "description": "Standard pharmacy - potential for general storage accessories or future MC clinic network",
-      "stage": "New Lead",
+      "stage": "Negotiation",
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
@@ -389,7 +411,7 @@
       "contactName": "",
       "contactTitle": "Pharmacist",
       "contactType": "Prospect",
-      "lastActivity": "2026-06-21",
+      "lastActivity": "2026-07-02",
       "createdAt": "2026-06-20",
       "potentialSale": true,
       "isPopular": false,
@@ -401,7 +423,28 @@
       "subtotal": 1400,
       "shipping": 50,
       "tax": 145,
-      "value": 1595
+      "value": 1595,
+      "stageChangedAt": "2026-07-02",
+      "activities": [
+        {
+          "id": "act-2",
+          "type": "stage",
+          "note": "Moved from Proposal to Negotiation",
+          "createdAt": "2026-07-02T08:01:13.440Z",
+          "createdBy": "Sarah",
+          "fromStage": "Proposal",
+          "toStage": "Negotiation"
+        },
+        {
+          "id": "act-1",
+          "type": "stage",
+          "note": "Moved from New Lead to Proposal",
+          "createdAt": "2026-07-02T08:01:10.215Z",
+          "createdBy": "Sarah",
+          "fromStage": "New Lead",
+          "toStage": "Proposal"
+        }
+      ]
     },
     {
       "id": "pharm-6",
@@ -596,7 +639,7 @@
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
-      "assignee": "Unassigned",
+      "assignee": "Sarah",
       "closeDate": "",
       "lossReason": "",
       "notes": "",
@@ -604,7 +647,7 @@
       "contactName": "",
       "contactTitle": "Pharmacist",
       "contactType": "Prospect",
-      "lastActivity": "2026-06-20",
+      "lastActivity": "2026-07-14",
       "createdAt": "2026-06-20",
       "potentialSale": true,
       "isPopular": true,
@@ -616,7 +659,17 @@
       "subtotal": 725,
       "shipping": 25,
       "tax": 75,
-      "value": 825
+      "value": 825,
+      "stageChangedAt": "2026-07-14",
+      "activities": [
+        {
+          "id": "act-1",
+          "type": "note",
+          "note": "Sarah added this store to their pipeline",
+          "createdAt": "2026-07-14T04:52:34.918Z",
+          "createdBy": "Sarah"
+        }
+      ]
     },
     {
       "id": "pharm-11",
@@ -3004,7 +3057,7 @@
       "status": "Open",
       "priority": "Medium",
       "source": "Outbound",
-      "assignee": "Unassigned",
+      "assignee": "Sarah",
       "closeDate": "",
       "lossReason": "",
       "notes": "",
@@ -3012,7 +3065,7 @@
       "contactName": "",
       "contactTitle": "Pharmacist",
       "contactType": "Prospect",
-      "lastActivity": "2026-06-20",
+      "lastActivity": "2026-07-02",
       "createdAt": "2026-06-20",
       "potentialSale": true,
       "isPopular": false,
@@ -3024,7 +3077,17 @@
       "subtotal": 1400,
       "shipping": 50,
       "tax": 145,
-      "value": 1595
+      "value": 1595,
+      "stageChangedAt": "2026-07-02",
+      "activities": [
+        {
+          "id": "act-1",
+          "type": "note",
+          "note": "Sarah added this store to their pipeline",
+          "createdAt": "2026-07-02T08:02:45.272Z",
+          "createdBy": "Sarah"
+        }
+      ]
     },
     {
       "id": "pharm-67",
@@ -27975,9 +28038,11 @@
       "title": "call",
       "assignee": "Sarah",
       "dueDate": "2026-06-21",
-      "status": "open",
+      "status": "done",
       "createdBy": "lewis",
-      "createdAt": "2026-06-21"
+      "createdAt": "2026-06-21",
+      "completedAt": "2026-07-02",
+      "completedBy": "Sarah"
     },
     {
       "id": "task-1",
@@ -28016,10 +28081,10 @@
     "memberEmails": {
       "Lewis": "info@leaflock.com.au"
     },
-    "lastReminderScan": "2026-07-14"
+    "lastReminderScan": "2026-06-25"
   },
-  "savedAt": "2026-07-14T04:49:39.006Z",
-  "updatedBy": "Sarahleaflock2026",
+  "savedAt": "2026-07-14T04:52:34.495Z",
+  "updatedBy": "Sarah",
   "meta": {
     "emailLog": {}
   }
